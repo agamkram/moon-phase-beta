@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#030408">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>The Moon</title>
+  <link rel="preload" href="moon.jpg" as="image" type="image/jpeg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&family=Space+Grotesk:wght@500;600&display=swap');
+
+    html {
+      height: 100%;
+      background: #030408;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      min-height: 100lvh;
+      min-height: -webkit-fill-available;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: transparent;
+    }
+
+    #starfield {
+      position: fixed;
+      z-index: 0;
+      pointer-events: none;
+      display: block;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      top: calc(-1 * constant(safe-area-inset-top));
+      top: calc(-1 * env(safe-area-inset-top, 0px));
+      left: calc(-1 * constant(safe-area-inset-left));
+      left: calc(-1 * env(safe-area-inset-left, 0px));
+      width: calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));
+      width: calc(100% + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
+      height: calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));
+      height: calc(100% + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
+      min-width: 100vw;
+      min-height: 100vh;
+      min-height: 100lvh;
+      min-height: -webkit-fill-available;
+    }
+
+    .app-shell {
+      position: relative;
+      z-index: 1;
+      padding:
+        max(1rem, env(safe-area-inset-top))
+        max(1rem, env(safe-area-inset-right))
+        max(1rem, env(safe-area-inset-bottom))
+        max(1rem, env(safe-area-inset-left));
+    }
+
+    .title-font {
+      font-family: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .moon-container {
+      box-shadow:
+        0 16px 36px -14px rgb(0 0 0 / 0.32),
+        0 0 16px rgba(255, 252, 245, 0.15),
+        0 0 32px rgba(225, 236, 255, 0.32),
+        0 0 64px rgba(195, 215, 255, 0.19),
+        0 0 100px rgba(170, 195, 255, 0.08);
+      transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .stat-label {
+      font-size: 0.625rem;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      line-height: 1.2;
+    }
+
+    @media (min-width: 640px) {
+      .stat-label {
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    .stat-card {
+      min-width: 0;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+
+    @media (min-width: 640px) {
+      .stat-value {
+        font-size: 1.875rem;
+      }
+    }
+
+    .stat-unit {
+      display: block;
+      margin-top: 0.25rem;
+      font-size: 0.625rem;
+      font-weight: 300;
+      color: rgb(161 161 170);
+      line-height: 1;
+    }
+
+    @media (min-width: 640px) {
+      .stat-unit {
+        font-size: 0.875rem;
+      }
+    }
+
+    .moon-scene {
+      position: relative;
+      width: min(720px, 62vh);
+      height: min(720px, 62vh);
+      max-width: 92vw;
+      max-height: 92vw;
+    }
+
+    .moon-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .moon-container:hover {
+      transform: scale(1.005);
+    }
+  </style>
+</head>
+<body class="text-white min-h-screen flex items-center justify-center">
+  <canvas id="starfield" aria-hidden="true"></canvas>
+
+  <div class="app-shell w-full max-w-[720px] px-4 sm:px-6">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 px-1">
+      <div>
+        <h1 class="title-font text-3xl sm:text-4xl tracking-tighter font-semibold">The Moon</h1>
+      </div>
+      <div id="phase-name"
+           class="self-start sm:self-auto inline-flex items-center px-3 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-sm font-medium text-zinc-300">
+        —
+      </div>
+    </div>
+
+    <div class="flex justify-center mb-6">
+      <div class="moon-scene">
+        <canvas id="moon-canvas" width="1000" height="1000"
+                class="moon-container rounded-full moon-canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-3 gap-2 sm:gap-3 px-1">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+        <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
+        <div class="stat-value text-white" id="illumination">—</div>
+        <div class="stat-unit">percent</div>
+      </div>
+
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+        <div class="stat-label text-zinc-500 mb-1.5">Age</div>
+        <div class="stat-value text-white" id="moon-age">—</div>
+        <div class="stat-unit">days</div>
+      </div>
+
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+        <div class="stat-label text-zinc-500 mb-1.5">To Full</div>
+        <div class="stat-value text-white" id="days-to-full">—</div>
+        <div class="stat-unit">days</div>
+      </div>
+    </div>
+
+    <div class="mt-5 px-1">
+      <div class="flex items-center justify-between mb-2">
+        <label for="phase-slider" class="stat-label text-zinc-500">Preview phase</label>
+        <button type="button" id="reset-slider"
+                class="text-[10px] sm:text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+          Use live
+        </button>
+      </div>
+      <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
+             class="w-full accent-zinc-300">
+      <p id="slider-label" class="text-[10px] sm:text-xs text-zinc-600 mt-1.5">Live phase</p>
+    </div>
+  </div>
+
+  <canvas id="moon-texture" aria-hidden="true" style="position:fixed;left:-9999px;width:0;height:0;visibility:hidden"></canvas>
+
+  <script src="astronomy.js"></script>
+  <script>
+    const SYNODIC = 29.530588853;
+    const MOON_SRC = 'moon.jpg';
+    const TEXTURE_SIZE = 1536;
+    const TEXTURE_FILTER = 'brightness(1.35) contrast(1.38) saturate(1.22)';
+    const EARTHSHINE = 0.55;
+    const NORTHERN_HEMISPHERE = true;
+
+    const isPhone = /iPhone|iPod/i.test(navigator.userAgent) ||
+      (navigator.userAgent.includes('Android') && window.innerWidth < 768);
+
+    function computeMoonSize() {
+      const scene = document.querySelector('.moon-scene');
+      const cssW = scene ? scene.getBoundingClientRect().width : (isPhone ? 320 : 720);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (isPhone) {
+        return Math.min(1024, Math.max(480, Math.round(cssW * dpr)));
+      }
+      return Math.min(1200, Math.max(800, Math.round(cssW * dpr)));
+    }
+
+    let MOON_SIZE = computeMoonSize();
+    const textureCanvas = document.getElementById('moon-texture');
+    const textureCtx = textureCanvas.getContext('2d');
+
+    function getMoonData(date = new Date()) {
+      const illum = Astronomy.Illumination(Astronomy.Body.Moon, date);
+      return {
+        phase: Astronomy.MoonPhase(date) / 360,
+        fraction: illum.phase_fraction,
+      };
+    }
+
+    function phaseIllum(phase) {
+      return (1 - Math.cos(phase * Math.PI * 2)) / 2;
+    }
+
+    function daysToFull(phase) {
+      return phase < 0.5 ? (0.5 - phase) * SYNODIC : (1.5 - phase) * SYNODIC;
+    }
+
+    function getPhaseName(phase) {
+      if (phase < 0.03 || phase > 0.97) return 'New Moon';
+      if (phase < 0.22) return 'Waxing Crescent';
+      if (phase < 0.28) return 'First Quarter';
+      if (phase < 0.47) return 'Waxing Gibbous';
+      if (phase < 0.53) return 'Full Moon';
+      if (phase < 0.72) return 'Waning Gibbous';
+      if (phase < 0.78) return 'Last Quarter';
+      return 'Waning Crescent';
+    }
+
+    function calcPhaseDisc(diameter, semiPhase) {
+      const absPhase = Math.abs(semiPhase);
+      const n = ((1 - absPhase) * diameter / 2) || 0.01;
+      const discR = n / 2 + (diameter * diameter) / (8 * n);
+      const left = semiPhase > 0
+        ? (diameter / 2 - n)
+        : (-2 * discR + diameter / 2 + n);
+      return { x: left + discR, r: discR };
+    }
+
+    function appendUnlitPath(ctx, cx, cy, r, phase, illum) {
+      const waxing = phase <= 0.5;
+      const d = r * 2;
+
+      if (Math.abs(illum - 0.5) < 0.002) {
+        ctx.moveTo(cx, cy - r);
+        ctx.arc(cx, cy, r, waxing ? -Math.PI / 2 : Math.PI / 2, waxing ? Math.PI / 2 : -Math.PI / 2, true);
+        ctx.closePath();
+      } else if (illum < 0.5) {
+        let semiPhase = illum * 2;
+        if (waxing) semiPhase *= -1;
+        const disc = calcPhaseDisc(d, semiPhase);
+        ctx.arc(cx - r + disc.x, cy, disc.r, 0, Math.PI * 2);
+      } else {
+        let semiPhase = (1 - illum) * 2;
+        if (!waxing) semiPhase *= -1;
+        const disc = calcPhaseDisc(d, semiPhase);
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.arc(cx - r + disc.x, cy, disc.r, 0, Math.PI * 2, true);
+      }
+    }
+
+    function fillUnlitRegion(ctx, cx, cy, r, phase, illum, northern) {
+      ctx.beginPath();
+      if (!northern) {
+        ctx.save();
+        ctx.translate(cx, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-cx, 0);
+        appendUnlitPath(ctx, cx, cy, r, phase, illum);
+        ctx.restore();
+      } else {
+        appendUnlitPath(ctx, cx, cy, r, phase, illum);
+      }
+      ctx.fill();
+    }
+
+    function cropRect(w, h) {
+      const side = Math.min(w, h);
+      return { sx: (w - side) / 2, sy: Math.max(0, (h - side) / 2), side };
+    }
+
+    function bakeMoonTexture(img, target, targetCtx) {
+      target.width = target.height = TEXTURE_SIZE;
+      targetCtx.imageSmoothingEnabled = true;
+      if ('imageSmoothingQuality' in targetCtx) {
+        targetCtx.imageSmoothingQuality = 'high';
+      }
+      targetCtx.clearRect(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+      targetCtx.filter = TEXTURE_FILTER;
+      targetCtx.drawImage(img, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
+      targetCtx.filter = 'none';
+      return true;
+    }
+
+    function darkenUnlit(ctx, cx, cy, r, phase, illum, northern, amount) {
+      if (amount <= 0) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = `rgba(0, 0, 0, ${amount})`;
+      if (illum <= 0.005) {
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      } else if (illum < 0.995) {
+        fillUnlitRegion(ctx, cx, cy, r, phase, illum, northern);
+      }
+      ctx.restore();
+    }
+
+    function brightenLit(ctx, cx, cy, r, phase, illum, northern) {
+      if (illum <= 0.005) return;
+
+      if (!litLiftGradient) {
+        litLiftGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
+        litLiftGradient.addColorStop(0, 'rgba(255, 248, 235, 0.2)');
+        litLiftGradient.addColorStop(0.55, 'rgba(255, 248, 235, 0.07)');
+        litLiftGradient.addColorStop(1, 'rgba(255, 248, 235, 0)');
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      if (illum < 0.995) {
+        if (!northern) {
+          ctx.save();
+          ctx.translate(cx, 0);
+          ctx.scale(-1, 1);
+          ctx.translate(-cx, 0);
+          appendUnlitPath(ctx, cx, cy, r, phase, illum);
+          ctx.restore();
+        } else {
+          appendUnlitPath(ctx, cx, cy, r, phase, illum);
+        }
+      }
+      ctx.clip('evenodd');
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = litLiftGradient;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+    }
+
+    function isStandalone() {
+      return window.navigator.standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+    }
+
+    const MAX_STARFIELD_CSS = 2400;
+
+    function layoutStarfield(canvas) {
+      let w;
+      let h;
+
+      if (isStandalone()) {
+        w = Math.ceil(window.innerWidth);
+        h = Math.ceil(window.screen.height);
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+      } else {
+        w = Math.ceil(window.innerWidth);
+        h = Math.ceil(window.innerHeight);
+      }
+
+      w = Math.min(w, MAX_STARFIELD_CSS);
+      h = Math.min(h, MAX_STARFIELD_CSS);
+
+      if (!w || !h) return false;
+      paintStarfield(canvas, w, h);
+      return true;
+    }
+
+    function paintStarfield(canvas, w, h) {
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.min(w * dpr, MAX_STARFIELD_CSS * dpr);
+      canvas.height = Math.min(h * dpr, MAX_STARFIELD_CSS * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const sky = ctx.createRadialGradient(w * 0.38, h * 0.18, 0, w * 0.5, h * 0.55, Math.max(w, h) * 0.95);
+      sky.addColorStop(0, '#121a2f');
+      sky.addColorStop(0.45, '#080c16');
+      sky.addColorStop(1, '#020308');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, w, h);
+
+      let seed = 4187;
+      const rand = () => {
+        seed = (seed * 16807) % 2147483647;
+        return (seed - 1) / 2147483646;
+      };
+
+      const milky = ctx.createLinearGradient(0, h * 0.15, w, h * 0.88);
+      milky.addColorStop(0, 'rgba(70, 90, 150, 0)');
+      milky.addColorStop(0.38, 'rgba(95, 115, 175, 0.045)');
+      milky.addColorStop(0.52, 'rgba(130, 145, 210, 0.07)');
+      milky.addColorStop(0.66, 'rgba(85, 100, 160, 0.04)');
+      milky.addColorStop(1, 'rgba(60, 75, 120, 0)');
+      ctx.fillStyle = milky;
+      ctx.fillRect(0, 0, w, h);
+
+      const nebulae = [
+        [0.18, 0.28, 0.22, 120, 180, 255],
+        [0.74, 0.22, 0.18, 180, 120, 220],
+        [0.62, 0.78, 0.2, 100, 140, 210],
+        [0.28, 0.72, 0.16, 140, 160, 230],
+      ];
+      for (const [nx, ny, nr, cr, cg, cb] of nebulae) {
+        const g = ctx.createRadialGradient(nx * w, ny * h, 0, nx * w, ny * h, nr * Math.min(w, h));
+        g.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, 0.09)`);
+        g.addColorStop(0.55, `rgba(${cr}, ${cg}, ${cb}, 0.035)`);
+        g.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      function starColor(t) {
+        if (t < 0.12) return [170, 200, 255];
+        if (t < 0.22) return [220, 230, 255];
+        if (t < 0.88) return [235, 238, 255];
+        return [255, 228, 190];
+      }
+
+      function drawStar(x, y, radius, alpha, color, glow = 0) {
+        if (glow > 0) {
+          const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * glow);
+          halo.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * 0.55})`);
+          halo.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+          ctx.fillStyle = halo;
+          ctx.fillRect(x - radius * glow, y - radius * glow, radius * glow * 2, radius * glow * 2);
+        }
+        ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawSparkle(x, y, size, alpha, color) {
+        drawStar(x, y, size, alpha, color, 5);
+        ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha * 0.45})`;
+        ctx.lineWidth = 0.6;
+        const arm = size * 4.5;
+        ctx.beginPath();
+        ctx.moveTo(x - arm, y);
+        ctx.lineTo(x + arm, y);
+        ctx.moveTo(x, y - arm);
+        ctx.lineTo(x, y + arm);
+        ctx.stroke();
+        const diag = arm * 0.55;
+        ctx.lineWidth = 0.35;
+        ctx.beginPath();
+        ctx.moveTo(x - diag, y - diag);
+        ctx.lineTo(x + diag, y + diag);
+        ctx.moveTo(x - diag, y + diag);
+        ctx.lineTo(x + diag, y - diag);
+        ctx.stroke();
+      }
+
+      const area = Math.min(w * h, 1920 * 1080);
+      const dustCount = Math.floor(area / 420);
+      for (let i = 0; i < dustCount; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        const bias = Math.abs((x / w + y / h) * 0.5 - 0.48) < 0.18 ? 1.35 : 1;
+        if (rand() > 0.62 * bias) continue;
+        const color = starColor(rand());
+        drawStar(x, y, rand() < 0.9 ? 0.45 : 0.7, 0.12 + rand() * 0.38, color);
+      }
+
+      const clusters = Array.from({ length: 7 }, () => ({
+        x: 0.08 + rand() * 0.84,
+        y: 0.08 + rand() * 0.84,
+        spread: 0.03 + rand() * 0.07,
+        count: 18 + (rand() * 30 | 0),
+      }));
+
+      for (const cluster of clusters) {
+        for (let i = 0; i < cluster.count; i++) {
+          const angle = rand() * Math.PI * 2;
+          const dist = rand() * cluster.spread * Math.min(w, h);
+          const x = cluster.x * w + Math.cos(angle) * dist;
+          const y = cluster.y * h + Math.sin(angle) * dist;
+          const color = starColor(rand());
+          drawStar(x, y, 0.55 + rand() * 0.9, 0.25 + rand() * 0.45, color, rand() < 0.2 ? 2.5 : 0);
+        }
+      }
+
+      const midCount = Math.floor(area / 1800);
+      for (let i = 0; i < midCount; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        const color = starColor(rand());
+        drawStar(x, y, 0.75 + rand() * 0.9, 0.3 + rand() * 0.5, color, rand() < 0.15 ? 2 : 0);
+      }
+
+      const brightCount = Math.floor(area / 12000) + 12;
+      for (let i = 0; i < brightCount; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        const color = starColor(rand());
+        const size = 1.1 + rand() * 1.4;
+        if (rand() < 0.28) drawSparkle(x, y, size, 0.55 + rand() * 0.35, color);
+        else drawStar(x, y, size, 0.45 + rand() * 0.4, color, 3.5 + rand() * 2);
+      }
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.012)';
+      for (let i = 0; i < 900; i++) {
+        const x = rand() * w;
+        const y = rand() * h;
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    let limbGradient = null;
+    let litLiftGradient = null;
+
+    function drawMoon(ctx, textureReady, phase, illum) {
+      const cx = MOON_SIZE / 2;
+      const cy = MOON_SIZE / 2;
+      const r = MOON_SIZE / 2;
+      const shadow = 1 - EARTHSHINE;
+
+      ctx.clearRect(0, 0, MOON_SIZE, MOON_SIZE);
+
+      if (!textureReady) {
+        ctx.fillStyle = '#111114';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(textureCanvas, 0, 0, TEXTURE_SIZE, TEXTURE_SIZE, cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+
+      darkenUnlit(ctx, cx, cy, r, phase, illum, NORTHERN_HEMISPHERE, shadow);
+
+      if (!limbGradient) {
+        limbGradient = ctx.createRadialGradient(cx, cy, r * 0.86, cx, cy, r);
+        limbGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        limbGradient.addColorStop(1, 'rgba(0, 0, 0, 0.06)');
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = limbGradient;
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+
+      brightenLit(ctx, cx, cy, r, phase, illum, NORTHERN_HEMISPHERE);
+    }
+
+    function init() {
+      const starfield = document.getElementById('starfield');
+      const canvas = document.getElementById('moon-canvas');
+      MOON_SIZE = computeMoonSize();
+      limbGradient = null;
+      litLiftGradient = null;
+      const moonCtx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+      canvas.width = MOON_SIZE;
+      canvas.height = MOON_SIZE;
+      const illumEl = document.getElementById('illumination');
+      const ageEl = document.getElementById('moon-age');
+      const daysToFullEl = document.getElementById('days-to-full');
+      const phaseNameEl = document.getElementById('phase-name');
+      const slider = document.getElementById('phase-slider');
+      const sliderLabel = document.getElementById('slider-label');
+      const resetSlider = document.getElementById('reset-slider');
+
+      let textureReady = false;
+      let previewMode = false;
+      let sliderRaf = 0;
+      let pendingPreviewPhase = null;
+
+      async function loadMoonTexture() {
+        try {
+          const img = new Image();
+          await new Promise((resolve, reject) => {
+            img.onload = () => img.naturalWidth ? resolve() : reject(new Error('empty image'));
+            img.onerror = () => reject(new Error('failed to load moon.jpg'));
+            img.src = MOON_SRC;
+          });
+          if (img.decode) await img.decode();
+          textureReady = bakeMoonTexture(img, textureCanvas, textureCtx);
+        } catch (_) {
+          textureReady = false;
+        }
+        refreshMoonDisplay();
+      }
+
+      loadMoonTexture();
+
+      let starfieldTimer = 0;
+      function scheduleStarfield() {
+        clearTimeout(starfieldTimer);
+        starfieldTimer = setTimeout(() => {
+          requestAnimationFrame(() => {
+            if (!layoutStarfield(starfield)) setTimeout(scheduleStarfield, 120);
+          });
+        }, 100);
+      }
+
+      scheduleStarfield();
+      window.addEventListener('resize', scheduleStarfield);
+      window.addEventListener('orientationchange', scheduleStarfield);
+      window.addEventListener('pageshow', scheduleStarfield);
+      drawMoon(moonCtx, false, 0, 0);
+
+      function updateDisplay(phase, illumination) {
+        illumEl.textContent = (illumination * 100).toFixed(1);
+        ageEl.textContent = (phase * SYNODIC).toFixed(1);
+        daysToFullEl.textContent = daysToFull(phase).toFixed(1);
+        phaseNameEl.textContent = getPhaseName(phase);
+        drawMoon(moonCtx, textureReady, phase, illumination);
+      }
+
+      function updatePreviewStats(phase) {
+        const illum = phaseIllum(phase);
+        phaseNameEl.textContent = getPhaseName(phase);
+        illumEl.textContent = (illum * 100).toFixed(1);
+        ageEl.textContent = (phase * SYNODIC).toFixed(1);
+        daysToFullEl.textContent = daysToFull(phase).toFixed(1);
+      }
+
+      function queuePreview(phase) {
+        pendingPreviewPhase = phase;
+        if (sliderRaf) return;
+        sliderRaf = requestAnimationFrame(() => {
+          sliderRaf = 0;
+          if (pendingPreviewPhase == null) return;
+          updatePreviewStats(pendingPreviewPhase);
+          drawMoon(moonCtx, textureReady, pendingPreviewPhase, phaseIllum(pendingPreviewPhase));
+          pendingPreviewPhase = null;
+        });
+      }
+
+      function syncSliderToLive() {
+        const phase = getMoonData().phase;
+        slider.value = Math.round(phase * 1000);
+        sliderLabel.textContent = 'Live phase';
+        previewMode = false;
+      }
+
+      function refreshMoonDisplay() {
+        const data = getMoonData();
+        if (!previewMode) {
+          syncSliderToLive();
+          updateDisplay(data.phase, data.fraction);
+        }
+      }
+
+      slider.addEventListener('input', () => {
+        previewMode = true;
+        const phase = Number(slider.value) / 1000;
+        sliderLabel.textContent = `Preview ${(phase * 100).toFixed(1)}% through cycle`;
+        queuePreview(phase);
+      });
+
+      resetSlider.addEventListener('click', () => {
+        syncSliderToLive();
+        const data = getMoonData();
+        updateDisplay(data.phase, data.fraction);
+      });
+
+      setTimeout(refreshMoonDisplay, 50);
+      setInterval(refreshMoonDisplay, 60 * 1000);
+    }
+
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>
