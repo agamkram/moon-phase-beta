@@ -210,6 +210,8 @@
       </div>
     </div>
 
+    <p id="moon-date" class="text-center text-sm sm:text-base text-zinc-400 mt-3 px-1">—</p>
+
     <div class="mt-5 px-1 space-y-4">
       <div>
         <div class="stat-label text-zinc-500 mb-2">Hemisphere</div>
@@ -685,6 +687,7 @@
       const phaseNameEl = document.getElementById('phase-name');
       const slider = document.getElementById('phase-slider');
       const sliderLabel = document.getElementById('slider-label');
+      const dateEl = document.getElementById('moon-date');
       const resetSlider = document.getElementById('reset-slider');
       const hemNorth = document.getElementById('hem-north');
       const hemSouth = document.getElementById('hem-south');
@@ -763,6 +766,10 @@
         daysToFullEl.textContent = daysToFull(phase).toFixed(1);
       }
 
+      function updateDateDisplay(date) {
+        dateEl.textContent = formatDate(date);
+      }
+
       function queuePreview(phase, date) {
         pendingPreviewPhase = phase;
         pendingPreviewDate = date;
@@ -776,7 +783,7 @@
           pendingPreviewDate = null;
           updatePreviewStats(previewPhase);
           drawMoon(moonCtx, textureReady, previewPhase, phaseIllum(previewPhase));
-          if (previewDate) sliderLabel.textContent = formatDate(previewDate);
+          if (previewDate) updateDateDisplay(previewDate);
         });
       }
 
@@ -786,7 +793,8 @@
         previewMode = false;
         const data = getMoonData(now);
         slider.value = Math.round(data.phase * 1000);
-        sliderLabel.textContent = 'Today';
+        sliderLabel.textContent = 'Live phase';
+        updateDateDisplay(now);
         updateDisplay(data.phase, data.fraction);
       }
 
@@ -796,7 +804,8 @@
         currentDate = now;
         const data = getMoonData(now);
         slider.value = Math.round(data.phase * 1000);
-        sliderLabel.textContent = 'Today';
+        sliderLabel.textContent = 'Live phase';
+        updateDateDisplay(now);
         updateDisplay(data.phase, data.fraction);
       }
 
@@ -827,6 +836,7 @@
         const phase = Number(slider.value) / 1000;
         const date = dateFromPhaseOffset(sliderAnchorDate, sliderAnchorPhase, phase);
         currentDate = date;
+        sliderLabel.textContent = `Preview ${(phase * 100).toFixed(1)}% through cycle`;
         queuePreview(phase, date);
       });
 
