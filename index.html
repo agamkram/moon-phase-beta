@@ -34,28 +34,27 @@
       margin: 0;
       padding: 0;
       border: 0;
-      top: calc(-1 * constant(safe-area-inset-top));
-      top: calc(-1 * env(safe-area-inset-top, 0px));
-      left: calc(-1 * constant(safe-area-inset-left));
-      left: calc(-1 * env(safe-area-inset-left, 0px));
-      width: calc(100% + constant(safe-area-inset-left) + constant(safe-area-inset-right));
-      width: calc(100% + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
-      height: calc(100% + constant(safe-area-inset-top) + constant(safe-area-inset-bottom));
-      height: calc(100% + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
-      min-width: 100vw;
-      min-height: 100vh;
-      min-height: 100lvh;
-      min-height: -webkit-fill-available;
     }
 
     .app-shell {
       position: relative;
       z-index: 1;
+      width: 100%;
+      min-height: 100dvh;
+      box-sizing: border-box;
       padding:
-        max(1rem, env(safe-area-inset-top))
+        max(0.75rem, env(safe-area-inset-top))
         max(1rem, env(safe-area-inset-right))
-        max(1rem, env(safe-area-inset-bottom))
+        max(0.75rem, env(safe-area-inset-bottom))
         max(1rem, env(safe-area-inset-left));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .app-body {
+      display: flex;
+      flex-direction: column;
     }
 
     .title-font {
@@ -126,11 +125,61 @@
 
     .moon-scene {
       position: relative;
-      width: min(720px, 62vh);
-      height: min(720px, 62vh);
-      max-width: 92vw;
-      max-height: 92vw;
+      width: min(720px, 62vh, 92vw);
+      height: min(720px, 62vh, 92vw);
       transform-origin: center center;
+    }
+
+    #phase-slider {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      margin: 0;
+      cursor: pointer;
+      touch-action: pan-y;
+    }
+
+    .slider-wrap {
+      padding: 0.5rem 0 0.25rem;
+    }
+
+    @media (min-width: 768px) and (orientation: portrait) {
+      .moon-scene {
+        width: min(58vh, 78vw, 520px);
+        height: min(58vh, 78vw, 520px);
+      }
+    }
+
+    @media (orientation: landscape) and (min-width: 768px) {
+      .app-shell {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .app-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 34vw);
+        gap: 1rem 1.5rem;
+        align-items: center;
+      }
+
+      .app-header {
+        grid-column: 1 / -1;
+        margin-bottom: 0 !important;
+      }
+
+      .moon-column {
+        margin-bottom: 0 !important;
+      }
+
+      .moon-scene {
+        width: min(68vh, 44vw, 460px);
+        height: min(68vh, 44vw, 460px);
+      }
+
+      .info-column {
+        align-self: center;
+      }
     }
 
     .moon-scene.is-zoomed {
@@ -199,11 +248,12 @@
 
   </style>
 </head>
-<body class="text-white min-h-screen flex items-center justify-center">
+<body class="text-white min-h-dvh">
   <canvas id="starfield" aria-hidden="true"></canvas>
 
-  <div class="app-shell w-full max-w-[720px] px-4 sm:px-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 px-1">
+  <div class="app-shell max-w-[720px] mx-auto px-4 sm:px-6">
+    <div class="app-body">
+    <div class="app-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5 sm:mb-6 px-1">
       <div>
         <h1 class="title-font text-3xl sm:text-4xl tracking-tighter">The Moon</h1>
       </div>
@@ -213,7 +263,7 @@
       </div>
     </div>
 
-    <div class="flex justify-center mb-6">
+    <div class="moon-column flex justify-center mb-5 sm:mb-6">
       <div class="moon-scene">
         <div class="moon-wrap">
           <canvas id="moon-canvas" aria-label="Moon phase rendering"></canvas>
@@ -221,6 +271,7 @@
       </div>
     </div>
 
+    <div class="info-column">
     <div class="grid grid-cols-3 gap-2 sm:gap-3 px-1">
       <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
@@ -256,9 +307,13 @@
         <label for="phase-slider" class="stat-label text-zinc-500">Preview phase</label>
         <button type="button" id="reset-slider" class="live-btn is-live">Live</button>
       </div>
-      <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
-             class="w-full accent-zinc-300">
+      <div class="slider-wrap">
+        <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
+               class="w-full accent-zinc-300">
+      </div>
       <p id="slider-label" class="text-[10px] sm:text-xs text-zinc-600 mt-1.5">Live phase</p>
+    </div>
+    </div>
     </div>
   </div>
 
@@ -453,31 +508,46 @@
       ctx.restore();
     }
 
-    function isStandalone() {
-      return window.navigator.standalone === true ||
-        window.matchMedia('(display-mode: standalone)').matches;
+    const MAX_STARFIELD_CSS = 2400;
+    let safeAreaProbe = null;
+
+    function readSafeAreaInsets() {
+      if (!safeAreaProbe) {
+        safeAreaProbe = document.createElement('div');
+        safeAreaProbe.style.cssText =
+          'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+        document.body.appendChild(safeAreaProbe);
+      }
+      const style = getComputedStyle(safeAreaProbe);
+      return {
+        top: parseFloat(style.paddingTop) || 0,
+        right: parseFloat(style.paddingRight) || 0,
+        bottom: parseFloat(style.paddingBottom) || 0,
+        left: parseFloat(style.paddingLeft) || 0,
+      };
     }
 
-    const MAX_STARFIELD_CSS = 2400;
+    function viewportCoverSize() {
+      const safe = readSafeAreaInsets();
+      const vv = window.visualViewport;
+      const w = Math.ceil(window.innerWidth + safe.left + safe.right);
+      const h = Math.ceil(Math.max(
+        window.innerHeight,
+        document.documentElement.clientHeight,
+        (vv?.height ?? 0) + (vv?.offsetTop ?? 0)
+      ) + safe.top + safe.bottom);
+      return { w, h, safe };
+    }
 
     function layoutStarfield(canvas) {
-      let w;
-      let h;
+      const { w: coverW, h: coverH, safe } = viewportCoverSize();
+      canvas.style.top = `${-safe.top}px`;
+      canvas.style.left = `${-safe.left}px`;
+      canvas.style.width = `${coverW}px`;
+      canvas.style.height = `${coverH}px`;
 
-      if (isStandalone()) {
-        w = Math.ceil(window.innerWidth);
-        h = Math.ceil(window.screen.height);
-        canvas.style.top = '0';
-        canvas.style.left = '0';
-        canvas.style.width = `${w}px`;
-        canvas.style.height = `${h}px`;
-      } else {
-        w = Math.ceil(window.innerWidth);
-        h = Math.ceil(window.innerHeight);
-      }
-
-      w = Math.min(w, MAX_STARFIELD_CSS);
-      h = Math.min(h, MAX_STARFIELD_CSS);
+      const w = Math.min(coverW, MAX_STARFIELD_CSS);
+      const h = Math.min(coverH, MAX_STARFIELD_CSS);
 
       if (!w || !h) return false;
       paintStarfield(canvas, w, h);
@@ -763,6 +833,8 @@
       scheduleStarfield();
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onViewportChange);
+      window.visualViewport?.addEventListener('resize', onViewportChange);
+      window.visualViewport?.addEventListener('scroll', onViewportChange);
       window.addEventListener('pageshow', () => {
         onViewportChange();
         syncLiveDisplay();
