@@ -166,6 +166,37 @@
       color: rgb(250 250 250);
     }
 
+    .live-btn {
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 0.625rem;
+      font-weight: 500;
+      line-height: 1;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    @media (min-width: 640px) {
+      .live-btn {
+        font-size: 0.75rem;
+      }
+    }
+
+    .live-btn.is-live {
+      color: rgb(113 113 122);
+      background: transparent;
+    }
+
+    .live-btn.is-preview {
+      color: rgb(250 250 250);
+      background: rgb(63 63 70);
+      border-color: rgb(82 82 91);
+    }
+
+    .live-btn.is-preview:hover {
+      background: rgb(82 82 91);
+    }
+
   </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center">
@@ -223,10 +254,7 @@
 
       <div class="flex items-center justify-between mb-2">
         <label for="phase-slider" class="stat-label text-zinc-500">Preview phase</label>
-        <button type="button" id="reset-slider"
-                class="text-[10px] sm:text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
-          Use live
-        </button>
+        <button type="button" id="reset-slider" class="live-btn is-live">Live</button>
       </div>
       <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
              class="w-full accent-zinc-300">
@@ -784,6 +812,12 @@
         });
       }
 
+      function updateLiveButton() {
+        resetSlider.textContent = previewMode ? 'Use live' : 'Live';
+        resetSlider.classList.toggle('is-preview', previewMode);
+        resetSlider.classList.toggle('is-live', !previewMode);
+      }
+
       function syncLiveDisplay({ force = false } = {}) {
         if (!force && previewMode) return;
         if (force) previewMode = false;
@@ -794,6 +828,7 @@
         sliderLabel.textContent = 'Live phase';
         updateDateDisplay(now);
         updateDisplay(data.phase, data.fraction);
+        updateLiveButton();
       }
 
       function setHemisphere(isNorth) {
@@ -814,6 +849,7 @@
         const date = dateFromPhaseOffset(sliderAnchorDate, sliderAnchorPhase, phase);
         currentDate = date;
         sliderLabel.textContent = `Preview ${(phase * 100).toFixed(1)}% through cycle`;
+        updateLiveButton();
         queuePreview(phase, date);
       });
 
