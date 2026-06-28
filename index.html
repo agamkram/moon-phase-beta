@@ -166,20 +166,6 @@
       color: rgb(250 250 250);
     }
 
-    input[type="date"] {
-      width: 100%;
-      padding: 0.55rem 0.75rem;
-      border-radius: 0.75rem;
-      border: 1px solid rgb(39 39 42);
-      background: rgb(24 24 27 / 0.6);
-      color: rgb(244 244 245);
-      font: inherit;
-      font-size: 0.875rem;
-    }
-
-    input[type="date"]::-webkit-calendar-picker-indicator {
-      filter: invert(0.8);
-    }
   </style>
 </head>
 <body class="text-white min-h-screen flex items-center justify-center">
@@ -231,11 +217,6 @@
           <button type="button" id="hem-north" class="hem-btn active">Northern</button>
           <button type="button" id="hem-south" class="hem-btn">Southern</button>
         </div>
-      </div>
-
-      <div>
-        <label for="date" class="stat-label text-zinc-500 mb-2 block">Date</label>
-        <input type="date" id="date" />
       </div>
 
       <div class="flex items-center justify-between mb-2">
@@ -304,16 +285,10 @@
       return phase < 0.5 ? (0.5 - phase) * SYNODIC : (1.5 - phase) * SYNODIC;
     }
 
-    function toDateInputValue(date) {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-
-    function dateFromInputValue(value) {
-      const [y, m, d] = value.split('-').map(Number);
-      return new Date(y, m - 1, d, 12, 0, 0);
+    function formatDate(date) {
+      return date.toLocaleDateString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+      });
     }
 
     function phaseDelta(from, to) {
@@ -711,14 +686,15 @@
       const slider = document.getElementById('phase-slider');
       const sliderLabel = document.getElementById('slider-label');
       const resetSlider = document.getElementById('reset-slider');
-      const dateInput = document.getElementById('date');
       const hemNorth = document.getElementById('hem-north');
       const hemSouth = document.getElementById('hem-south');
 
       let textureReady = false;
       let previewMode = false;
+      let currentDate = new Date();
       let sliderRaf = 0;
       let pendingPreviewPhase = null;
+      let pendingPreviewDate = null;
       let sliderAnchorDate = null;
       let sliderAnchorPhase = 0;
       let zoomRaf = 0;
@@ -787,40 +763,41 @@
         daysToFullEl.textContent = daysToFull(phase).toFixed(1);
       }
 
-      function queuePreview(phase) {
+      function queuePreview(phase, date) {
         pendingPreviewPhase = phase;
+        pendingPreviewDate = date;
         if (sliderRaf) return;
         sliderRaf = requestAnimationFrame(() => {
           sliderRaf = 0;
           if (pendingPreviewPhase == null) return;
-          updatePreviewStats(pendingPreviewPhase);
-          drawMoon(moonCtx, textureReady, pendingPreviewPhase, phaseIllum(pendingPreviewPhase));
+          const previewPhase = pendingPreviewPhase;
+          const previewDate = pendingPreviewDate;
           pendingPreviewPhase = null;
+          pendingPreviewDate = null;
+          updatePreviewStats(previewPhase);
+          drawMoon(moonCtx, textureReady, previewPhase, phaseIllum(previewPhase));
+          if (previewDate) sliderLabel.textContent = formatDate(previewDate);
         });
-      }
-
-      function syncSliderToDate(date) {
-        const data = getMoonData(date);
-        slider.value = Math.round(data.phase * 1000);
-        sliderLabel.textContent = 'Live phase';
-        previewMode = false;
       }
 
       function setToday() {
         const now = new Date();
-        dateInput.value = toDateInputValue(now);
-        syncSliderToDate(now);
+        currentDate = now;
+        previewMode = false;
         const data = getMoonData(now);
+        slider.value = Math.round(data.phase * 1000);
+        sliderLabel.textContent = 'Today';
         updateDisplay(data.phase, data.fraction);
       }
 
       function refreshMoonDisplay() {
-        const date = dateInput.value ? dateFromInputValue(dateInput.value) : new Date();
-        const data = getMoonData(date);
-        if (!previewMode) {
-          syncSliderToDate(date);
-          updateDisplay(data.phase, data.fraction);
-        }
+        if (previewMode) return;
+        const now = new Date();
+        currentDate = now;
+        const data = getMoonData(now);
+        slider.value = Math.round(data.phase * 1000);
+        sliderLabel.textContent = 'Today';
+        updateDisplay(data.phase, data.fraction);
       }
 
       function setHemisphere(isNorth) {
@@ -830,41 +807,33 @@
         if (textureReady) drawMoon(moonCtx, textureReady, lastPhase, lastIllum);
       }
 
-      dateInput.addEventListener('change', () => {
-        sliderAnchorDate = null;
-        const date = dateFromInputValue(dateInput.value);
-        syncSliderToDate(date);
-        const data = getMoonData(date);
-        updateDisplay(data.phase, data.fraction);
-      });
-
       slider.addEventListener('pointerdown', () => {
-        sliderAnchorDate = dateFromInputValue(dateInput.value);
-        sliderAnchorPhase = getMoonData(sliderAnchorDate).phase;
+        sliderAnchorDate = currentDate;
+        sliderAnchorPhase = previewMode
+          ? Number(slider.value) / 1000
+          : getMoonData(currentDate).phase;
       });
       slider.addEventListener('pointerup', () => { sliderAnchorDate = null; });
       slider.addEventListener('pointercancel', () => { sliderAnchorDate = null; });
 
       slider.addEventListener('input', () => {
         if (!sliderAnchorDate) {
-          sliderAnchorDate = dateFromInputValue(dateInput.value);
-          sliderAnchorPhase = getMoonData(sliderAnchorDate).phase;
+          sliderAnchorDate = currentDate;
+          sliderAnchorPhase = previewMode
+            ? Number(slider.value) / 1000
+            : getMoonData(currentDate).phase;
         }
         previewMode = true;
         const phase = Number(slider.value) / 1000;
         const date = dateFromPhaseOffset(sliderAnchorDate, sliderAnchorPhase, phase);
-        dateInput.value = toDateInputValue(date);
-        sliderLabel.textContent = `Preview ${(phase * 100).toFixed(1)}% through cycle`;
-        updatePreviewStats(phase);
-        queuePreview(phase);
+        currentDate = date;
+        queuePreview(phase, date);
       });
 
       resetSlider.addEventListener('click', setToday);
 
       hemNorth.addEventListener('click', () => setHemisphere(true));
       hemSouth.addEventListener('click', () => setHemisphere(false));
-
-      dateInput.value = toDateInputValue(new Date());
 
       const moonScene = document.querySelector('.moon-scene');
       let pinchStartDist = 0;
@@ -937,7 +906,6 @@
         applyMoonZoom();
       }, { passive: false });
 
-      setTimeout(refreshMoonDisplay, 50);
       setInterval(refreshMoonDisplay, 60 * 1000);
     }
 
