@@ -138,6 +138,8 @@
 
     .moon-column {
       min-height: 0;
+      min-width: 0;
+      width: 100%;
       margin: 0 !important;
       overflow: visible;
     }
@@ -156,7 +158,8 @@
 
     .moon-scene {
       position: relative;
-      width: min(88vw, 88vh, 720px);
+      width: min(100%, 88vmin, 720px);
+      max-width: 100%;
       aspect-ratio: 1;
       height: auto;
       max-height: 100%;
@@ -288,7 +291,7 @@
     <canvas id="starfield"></canvas>
   </div>
 
-  <div class="app-shell max-w-[720px] mx-auto px-4 sm:px-6">
+  <div class="app-shell max-w-[720px] mx-auto">
     <div class="app-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-2 px-1">
       <div>
         <h1 class="title-font text-3xl sm:text-4xl tracking-tighter">The Moon</h1>
