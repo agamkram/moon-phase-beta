@@ -1145,7 +1145,7 @@
         if (zoomRaf) cancelAnimationFrame(zoomRaf);
         zoomRaf = requestAnimationFrame(() => {
           zoomRaf = 0;
-          repaintMoonNow(useLayoutZoom() || !isLivePinch());
+          repaintMoonNow(!isLivePinch());
         });
       }
 
@@ -1154,7 +1154,7 @@
       }
 
       function useLayoutZoom() {
-        return isTabletView() && !isLivePinch();
+        return isTabletView() && moonZoom > 1.01;
       }
 
       function applyMoonZoom() {
