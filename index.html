@@ -22,7 +22,9 @@
 
     html {
       height: 100%;
+      max-height: 100dvh;
       min-height: 100lvh;
+      overflow: hidden;
       background-color: #020308;
       background-image: var(--sky-fill);
     }
@@ -30,7 +32,8 @@
     body {
       margin: 0;
       min-height: 100lvh;
-      height: 100%;
+      height: 100dvh;
+      max-height: 100dvh;
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: transparent;
@@ -79,6 +82,9 @@
 
     .app-footer {
       min-height: 0;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 2;
     }
 
     .title-font {
@@ -211,8 +217,10 @@
       width: 100%;
       margin: 0 !important;
       padding-inline: 1.75rem;
+      padding-block: clamp(0.35rem, 5cqh, 1rem);
       box-sizing: border-box;
       overflow: visible;
+      container-type: size;
     }
 
     body.moon-zoomed {
@@ -229,21 +237,22 @@
     }
 
     .moon-slot {
-      width: min(82vw, 400px);
+      width: min(82vw, 400px, 100cqw, calc(100cqh - 0.75rem));
       max-width: 100%;
+      max-height: 100%;
       aspect-ratio: 1;
-      flex-shrink: 0;
+      flex-shrink: 1;
     }
 
     @media (min-width: 768px) {
       .moon-slot {
-        width: min(68vh, 82vw, 480px);
+        width: min(68vh, 82vw, 480px, 100cqw, calc(100cqh - 0.75rem));
       }
     }
 
     @media (orientation: landscape) and (min-width: 768px) {
       .moon-slot {
-        width: min(58vh, 68vw, 440px);
+        width: min(58vh, 68vw, 440px, 100cqw, calc(100cqh - 0.75rem));
       }
     }
 
@@ -308,6 +317,51 @@
         gap: 0.5rem;
         padding-top: max(0.75rem, env(safe-area-inset-top));
         padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+      }
+    }
+
+    @media (min-width: 1024px) and (pointer: fine) {
+      .app-shell {
+        max-height: 100dvh;
+        gap: 0.55rem;
+        padding-top: max(0.5rem, env(safe-area-inset-top));
+        padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+      }
+
+      .moon-slot {
+        width: min(28vh, 26vw, 260px, 100cqw, calc(100cqh - 1rem));
+      }
+
+      html:not(.red-night) .moon-wrap {
+        box-shadow:
+          0 12px 28px -12px rgb(0 0 0 / 0.32),
+          0 0 12px rgba(255, 252, 245, 0.12),
+          0 0 24px rgba(225, 236, 255, 0.24),
+          0 0 48px rgba(195, 215, 255, 0.14);
+      }
+
+      html.red-night .moon-wrap {
+        box-shadow:
+          0 12px 28px -12px rgb(0 0 0 / 0.32),
+          0 0 12px rgba(255, 160, 140, 0.15),
+          0 0 24px rgba(255, 130, 110, 0.28),
+          0 0 48px rgba(220, 100, 90, 0.17);
+      }
+
+      .stats-row .stat-value,
+      .stat-value {
+        font-size: 1.5rem;
+      }
+
+      .stat-card {
+        padding-top: 0.65rem;
+        padding-bottom: 0.65rem;
+      }
+    }
+
+    @media (orientation: landscape) and (min-width: 1024px) and (pointer: fine) {
+      .moon-slot {
+        width: min(40vh, 28vw, 280px, 100cqw, calc(100cqh - 1rem));
       }
     }
 
@@ -1402,18 +1456,6 @@
         };
       }
 
-      function syncZoomAnchorFromView() {
-        if (!moon.wrap) return;
-        captureMoonHome();
-        if (!moonHomeOrigin) return;
-        const current = layoutAnchorFromRect(moon.wrap.getBoundingClientRect());
-        moonPan.x = current.cx - moonHomeOrigin.cx;
-        moonPan.y = current.cy - moonHomeOrigin.cy;
-        const clamped = clampMoonPan(moonPan.x, moonPan.y);
-        moonPan.x = clamped.x;
-        moonPan.y = clamped.y;
-      }
-
       function captureMoonZoomOrigin() {
         if (!moon.wrap) return;
         if (!(moonZoom > ZOOM_EPS && moonBaseSize > 0)) {
@@ -1486,7 +1528,6 @@
       }
 
       function finishZoomGesture() {
-        syncZoomAnchorFromView();
         applyMoonZoom();
         repaintMoonNow(true);
         if (moonZoom > ZOOM_EPS) {
