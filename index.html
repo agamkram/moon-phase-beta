@@ -4,15 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#030408">
-  <script>
-    try {
-      if (localStorage.getItem('redNight') === '1') {
-        document.documentElement.classList.add('red-night');
-        var theme = document.querySelector('meta[name="theme-color"]');
-        if (theme) theme.content = '#140404';
-      }
-    } catch (e) {}
-  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>The Moon</title>
@@ -476,10 +467,7 @@
       var sky = document.getElementById('sky');
       var canvas = document.getElementById('starfield');
       if (!sky || !canvas) return;
-      var redSky = false;
-      try { redSky = localStorage.getItem('redNight') === '1'; } catch (e) {}
-      sky.style.cssText = 'right:auto;bottom:auto;width:' + cover + ';height:' + cover +
-        (redSky ? ';background:#140404' : '');
+      sky.style.cssText = 'right:auto;bottom:auto;width:' + cover + ';height:' + cover;
       canvas.style.width = cover;
       canvas.style.height = cover;
     })();
@@ -564,7 +552,6 @@
   <script src="astronomy.js"></script>
   <script>
     const SYNODIC = 29.530588853;
-    const RED_NIGHT_KEY = 'redNight';
     const THEME_NORMAL = '#030408';
     const THEME_RED = '#140404';
     const MOON_TAP_SLOP = 12;
@@ -1603,17 +1590,10 @@
         document.documentElement.classList.toggle('red-night', on);
         const theme = document.querySelector('meta[name="theme-color"]');
         if (theme) theme.content = on ? THEME_RED : THEME_NORMAL;
-        try { localStorage.setItem(RED_NIGHT_KEY, on ? '1' : '0'); } catch (_) {}
         limbGradient = null;
         litLiftGradient = null;
         refreshStarfield();
         if (textureReady) drawMoon(moonCtx, lastPhase, lastIllum);
-      }
-
-      function loadRedNight() {
-        try {
-          if (localStorage.getItem(RED_NIGHT_KEY) === '1') setRedNight(true);
-        } catch (_) {}
       }
 
       function beginMoonTap(event) {
@@ -1635,8 +1615,6 @@
         moonTap = null;
         if (shouldToggle) setRedNight(!redNight);
       }
-
-      loadRedNight();
 
       if (moon.wrap) {
         moon.wrap.addEventListener('pointerdown', (event) => {
