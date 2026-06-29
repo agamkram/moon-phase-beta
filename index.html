@@ -414,12 +414,13 @@
     }
 
     function moonDpr() {
-      return Math.min(window.devicePixelRatio || 1, 3);
+      return Math.min(window.devicePixelRatio || 1, 4);
     }
 
     function computeRenderSize() {
       const zoom = moonZoom > 1.01 ? moonZoom : 1;
-      return Math.min(TEXTURE_SIZE, Math.max(256, Math.ceil(moonCssSize() * moonDpr() * zoom)));
+      const visualPx = Math.ceil(moonCssSize() * zoom * moonDpr());
+      return Math.min(TEXTURE_SIZE, Math.max(256, visualPx));
     }
     let lastPhase = 0.5;
     let lastIllum = 1;
@@ -975,7 +976,8 @@
         resetStarfieldPaint();
         scheduleStarfieldBoot();
         runStarfieldLayout();
-        scheduleMoonLayout(event.persisted ? 0 : 200);
+        if (moonZoom > 1.01) repaintMoonNow();
+        else scheduleMoonLayout(event.persisted ? 0 : 200);
         syncLiveDisplay();
       });
       drawMoon(moonCtx, false, 0, 0);
@@ -1105,6 +1107,23 @@
         moonScene.style.transform = '';
       }
 
+      function repaintMoonNow() {
+        if (zoomRaf) {
+          cancelAnimationFrame(zoomRaf);
+          zoomRaf = 0;
+        }
+        resizeMoonCanvas(canvas);
+        if (textureReady) drawMoon(moonCtx, textureReady, lastPhase, lastIllum);
+      }
+
+      function scheduleMoonRepaint() {
+        if (zoomRaf) cancelAnimationFrame(zoomRaf);
+        zoomRaf = requestAnimationFrame(() => {
+          zoomRaf = 0;
+          repaintMoonNow();
+        });
+      }
+
       function applyMoonZoom() {
         if (!moonScene) return;
         const zoomed = moonZoom > 1.01;
@@ -1126,12 +1145,7 @@
           clearMoonZoomStyles();
         }
 
-        if (zoomRaf) return;
-        zoomRaf = requestAnimationFrame(() => {
-          zoomRaf = 0;
-          resizeMoonCanvas(canvas);
-          if (textureReady) drawMoon(moonCtx, textureReady, lastPhase, lastIllum);
-        });
+        scheduleMoonRepaint();
       }
 
       document.addEventListener('touchstart', (event) => {
@@ -1154,8 +1168,10 @@
 
       document.addEventListener('touchend', (event) => {
         if (event.touches.length < 2) {
+          const wasPinching = pinching;
           pinching = false;
           pinchStartDist = 0;
+          if (wasPinching && moonZoom > 1.01) repaintMoonNow();
         }
       }, { passive: true });
 
@@ -1174,6 +1190,7 @@
       }, { passive: false });
       document.addEventListener('gestureend', (event) => {
         event.preventDefault();
+        if (moonZoom > 1.01) repaintMoonNow();
       }, { passive: false });
 
       document.addEventListener('wheel', (event) => {
