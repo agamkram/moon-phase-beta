@@ -583,7 +583,6 @@
     const MAX_MOON_ZOOM = 3;
     const ZOOM_EPS = 1.01;
     let moonZoom = 1;
-    let sliderScrubbing = false;
 
     const moon = {
       slot: null,
@@ -602,10 +601,8 @@
 
     function computeRenderSize() {
       const dpr = window.devicePixelRatio || 1;
-      if (sliderScrubbing && moonZoom > ZOOM_EPS && moonBaseSize > 0) {
-        return Math.min(TEXTURE_SIZE, Math.max(256, Math.ceil(moonBaseSize * dpr)));
-      }
-      return Math.min(TEXTURE_SIZE, Math.max(256, Math.ceil(moonCssSize() * dpr)));
+      const zoom = moonZoom > ZOOM_EPS ? moonZoom : 1;
+      return Math.min(TEXTURE_SIZE, Math.max(256, Math.ceil(moonCssSize() * dpr * zoom)));
     }
     const textureCanvas = document.getElementById('moon-texture');
     const textureCtx = textureCanvas.getContext('2d');
@@ -861,7 +858,7 @@
     }
 
     function applyAstronomerRed(ctx, w, h) {
-      if (!redNight || !w || !h || sliderScrubbing) return;
+      if (!redNight || !w || !h) return;
       const imageData = ctx.getImageData(0, 0, w, h);
       const d = imageData.data;
       for (let i = 0; i < d.length; i += 4) {
@@ -1289,19 +1286,11 @@
           const previewDate = pendingPreviewDate;
           pendingPreviewPhase = null;
           pendingPreviewDate = null;
-          if (sliderScrubbing && moonZoom > ZOOM_EPS) resizeMoonCanvas(canvas);
           const illum = phaseIllum(previewPhase);
           updateStats(previewPhase, illum, previewDate);
           drawMoon(moonCtx, previewPhase, illum);
           if (previewDate) updateDateDisplay(previewDate);
         });
-      }
-
-      function endSliderScrub() {
-        sliderAnchorDate = null;
-        if (!sliderScrubbing) return;
-        sliderScrubbing = false;
-        if (moonZoom > ZOOM_EPS) repaintMoonNow(true);
       }
 
       function updateLiveButton() {
@@ -1330,12 +1319,9 @@
         drawMoon(moonCtx, lastPhase, lastIllum);
       }
 
-      slider.addEventListener('pointerdown', () => {
-        ensureSliderAnchor();
-        sliderScrubbing = true;
-      });
-      slider.addEventListener('pointerup', endSliderScrub);
-      slider.addEventListener('pointercancel', endSliderScrub);
+      slider.addEventListener('pointerdown', ensureSliderAnchor);
+      slider.addEventListener('pointerup', () => { sliderAnchorDate = null; });
+      slider.addEventListener('pointercancel', () => { sliderAnchorDate = null; });
 
       slider.addEventListener('input', () => {
         ensureSliderAnchor();
