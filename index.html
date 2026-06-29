@@ -603,9 +603,14 @@
       const vv = window.visualViewport;
       const visualH = (vv?.height ?? 0) + (vv?.offsetTop ?? 0);
       const visualW = vv?.width ?? window.innerWidth;
+      const portrait = window.matchMedia('(orientation: portrait)').matches;
+      const sideA = window.innerWidth;
+      const sideB = window.innerHeight;
+      const orientedH = portrait ? Math.max(sideA, sideB) : Math.min(sideA, sideB);
       const layoutH = Math.max(
         window.innerHeight,
         document.documentElement.clientHeight,
+        orientedH,
         readViewportUnit('vh'),
         readViewportUnit('svh'),
         readViewportUnit('dvh'),
@@ -917,6 +922,7 @@
       function onOrientationChange() {
         clearTimeout(viewportTimer);
         suppressViewportUntil = Date.now() + 500;
+        starfieldPaint = { w: 0, h: 0 };
         clearTimeout(orientationTimer);
         orientationTimer = setTimeout(() => {
           suppressViewportUntil = 0;
@@ -926,6 +932,7 @@
             applyMoonZoom();
           }
         }, 350);
+        setTimeout(() => layoutStarfield(starfield, sky), 550);
       }
 
       applyViewportLayout();
