@@ -114,6 +114,11 @@
       line-height: 1.2;
     }
 
+    .stats-row .stat-label {
+      letter-spacing: 0.15px;
+      padding-inline: 0.1rem;
+    }
+
     @media (min-width: 640px) {
       .stat-label {
         font-size: 0.75rem;
@@ -385,7 +390,7 @@
     <div class="app-footer px-1">
     <div class="stats-row grid grid-cols-4 gap-1 sm:gap-3">
       <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
-        <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
+        <div class="stat-label text-zinc-500 mb-1.5"><span class="sm:hidden">Illum.</span><span class="hidden sm:inline">Illumination</span></div>
         <div class="stat-value text-white" id="illumination">—</div>
         <div class="stat-unit">percent</div>
       </div>
