@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#030408">
+  <script>
+    try { localStorage.removeItem('redNight'); } catch (e) {}
+    document.documentElement.classList.remove('red-night');
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>The Moon</title>
@@ -1218,11 +1222,13 @@
       window.addEventListener('orientationchange', onOrientationChange);
       window.visualViewport?.addEventListener('resize', onViewportChange);
       window.addEventListener('pageshow', (event) => {
+        if (event.persisted) ensureNormalOnOpen();
         refreshStarfield();
         if (moonZoom > ZOOM_EPS) repaintMoonNow(true);
         else scheduleMoonLayout(event.persisted ? 0 : 200);
         syncLiveDisplay();
       });
+      ensureNormalOnOpen();
       drawMoon(moonCtx, 0, 0);
 
       function updateDistanceDisplay(date = currentDate) {
@@ -1584,6 +1590,12 @@
         );
         applyMoonZoom();
       }, { passive: false });
+
+      function ensureNormalOnOpen() {
+        try { localStorage.removeItem('redNight'); } catch (_) {}
+        if (!redNight && !document.documentElement.classList.contains('red-night')) return;
+        setRedNight(false);
+      }
 
       function setRedNight(on) {
         redNight = on;
