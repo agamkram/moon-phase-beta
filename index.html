@@ -366,19 +366,32 @@
       background: rgb(82 82 91);
     }
 
-    /* ~630 nm astronomer red: map luminance to red only, brightness unchanged */
-    body.red-night #sky,
+    body.red-night {
+      --sky-fill: radial-gradient(ellipse 130% 95% at 38% 18%, #4a1414 0%, #240808 42%, #140404 100%);
+    }
+
+    body.red-night html {
+      background-color: #140404;
+      background-image: var(--sky-fill);
+    }
+
+    body.red-night #sky {
+      background: var(--sky-fill);
+    }
+
+    /* ~630 nm astronomer red for UI: luminance → red channel, brightness unchanged */
     body.red-night .app-shell {
+      -webkit-filter: url(#astronomer-red);
       filter: url(#astronomer-red);
     }
 
   </style>
 </head>
 <body class="text-white">
-  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+  <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:fixed;width:0;height:0;pointer-events:none">
     <defs>
       <filter id="astronomer-red" color-interpolation-filters="sRGB">
-        <feColorMatrix type="matrix" values="
+        <feColorMatrix in="SourceGraphic" type="matrix" values="
           0.2126 0.7152 0.0722 0 0
           0 0 0 0 0
           0 0 0 0 0
@@ -478,7 +491,7 @@
     const SYNODIC = 29.530588853;
     const RED_NIGHT_KEY = 'redNight';
     const THEME_NORMAL = '#030408';
-    const THEME_RED = '#030000';
+    const THEME_RED = '#140404';
     const MOON_TAP_SLOP = 12;
     let redNight = false;
     let moonTap = null;
@@ -696,6 +709,7 @@
     const MAX_STARFIELD_CSS = 4096;
     const STARFIELD_BOOT_MS = [150, 600];
     let starfieldCover = 0;
+    let starfieldRedPaint = null;
     let safeAreaProbe = null;
 
     function readSafeAreaInsets() {
@@ -742,33 +756,56 @@
       canvas.style.width = `${size}px`;
       canvas.style.height = `${size}px`;
 
-      if (size === starfieldCover && canvas.width > 0) {
+      if (size === starfieldCover && starfieldRedPaint === redNight && canvas.width > 0) {
         canvas.classList.add('is-ready');
         return true;
       }
 
       paintStarfield(canvas, size, size);
       starfieldCover = size;
+      starfieldRedPaint = redNight;
       canvas.classList.add('is-ready');
       return true;
     }
 
     function resetStarfieldPaint() {
       starfieldCover = 0;
+      starfieldRedPaint = null;
+    }
+
+    function applyAstronomerRed(ctx, w, h) {
+      if (!redNight || !w || !h) return;
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (!d[i + 3]) continue;
+        const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        d[i] = lum;
+        d[i + 1] = 0;
+        d[i + 2] = 0;
+      }
+      ctx.putImageData(imageData, 0, 0);
     }
 
     function paintStarfield(canvas, w, h) {
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const night = redNight;
 
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const sky = ctx.createRadialGradient(w * 0.38, h * 0.18, 0, w * 0.5, h * 0.55, Math.max(w, h) * 0.95);
-      sky.addColorStop(0, '#121a2f');
-      sky.addColorStop(0.45, '#080c16');
-      sky.addColorStop(1, '#020308');
+      if (night) {
+        sky.addColorStop(0, '#4a1414');
+        sky.addColorStop(0.45, '#240808');
+        sky.addColorStop(1, '#140404');
+      } else {
+        sky.addColorStop(0, '#121a2f');
+        sky.addColorStop(0.45, '#080c16');
+        sky.addColorStop(1, '#020308');
+      }
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, w, h);
 
@@ -779,15 +816,28 @@
       };
 
       const milky = ctx.createLinearGradient(0, h * 0.15, w, h * 0.88);
-      milky.addColorStop(0, 'rgba(70, 90, 150, 0)');
-      milky.addColorStop(0.38, 'rgba(95, 115, 175, 0.045)');
-      milky.addColorStop(0.52, 'rgba(130, 145, 210, 0.07)');
-      milky.addColorStop(0.66, 'rgba(85, 100, 160, 0.04)');
-      milky.addColorStop(1, 'rgba(60, 75, 120, 0)');
+      if (night) {
+        milky.addColorStop(0, 'rgba(80, 20, 20, 0)');
+        milky.addColorStop(0.38, 'rgba(110, 35, 30, 0.05)');
+        milky.addColorStop(0.52, 'rgba(140, 45, 38, 0.075)');
+        milky.addColorStop(0.66, 'rgba(90, 28, 25, 0.045)');
+        milky.addColorStop(1, 'rgba(60, 18, 15, 0)');
+      } else {
+        milky.addColorStop(0, 'rgba(70, 90, 150, 0)');
+        milky.addColorStop(0.38, 'rgba(95, 115, 175, 0.045)');
+        milky.addColorStop(0.52, 'rgba(130, 145, 210, 0.07)');
+        milky.addColorStop(0.66, 'rgba(85, 100, 160, 0.04)');
+        milky.addColorStop(1, 'rgba(60, 75, 120, 0)');
+      }
       ctx.fillStyle = milky;
       ctx.fillRect(0, 0, w, h);
 
-      const nebulae = [
+      const nebulae = night ? [
+        [0.18, 0.28, 0.22, 200, 80, 70],
+        [0.74, 0.22, 0.18, 180, 70, 60],
+        [0.62, 0.78, 0.2, 160, 65, 55],
+        [0.28, 0.72, 0.16, 170, 75, 62],
+      ] : [
         [0.18, 0.28, 0.22, 120, 180, 255],
         [0.74, 0.22, 0.18, 180, 120, 220],
         [0.62, 0.78, 0.2, 100, 140, 210],
@@ -803,6 +853,12 @@
       }
 
       function starColor(t) {
+        if (night) {
+          if (t < 0.12) return [255, 130, 110];
+          if (t < 0.22) return [255, 155, 125];
+          if (t < 0.88) return [255, 175, 145];
+          return [255, 195, 165];
+        }
         if (t < 0.12) return [170, 200, 255];
         if (t < 0.22) return [220, 230, 255];
         if (t < 0.88) return [235, 238, 255];
@@ -952,6 +1008,7 @@
       ctx.restore();
 
       brightenLit(ctx, cx, cy, r, phase, illum, northernHemisphere);
+      applyAstronomerRed(ctx, w, h);
     }
 
     function resizeMoonCanvas(canvas, force = false) {
@@ -1463,6 +1520,8 @@
         const theme = document.querySelector('meta[name="theme-color"]');
         if (theme) theme.content = on ? THEME_RED : THEME_NORMAL;
         try { localStorage.setItem(RED_NIGHT_KEY, on ? '1' : '0'); } catch (_) {}
+        refreshStarfield();
+        if (textureReady) drawMoon(moonCtx, lastPhase, lastIllum);
       }
 
       function loadRedNight() {
