@@ -35,22 +35,22 @@
       overflow: hidden;
       top: calc(-1 * env(safe-area-inset-top, 0px));
       left: calc(-1 * env(safe-area-inset-left, 0px));
-      width: calc(100vw + env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px));
-      height: calc(100vh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
-      height: calc(100dvh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
-      height: calc(100lvh + env(safe-area-inset-top, 0px) + env(safe-area-inset-bottom, 0px));
-      min-height: -webkit-fill-available;
+      right: calc(-1 * env(safe-area-inset-right, 0px));
+      bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
       background:
         radial-gradient(ellipse 130% 95% at 38% 18%, #121a2f 0%, #080c16 42%, #020308 100%);
     }
 
     #starfield {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: block;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
       margin: 0;
       padding: 0;
       border: 0;
@@ -556,70 +556,31 @@
 
     const MAX_STARFIELD_CSS = 4096;
     let starfieldReady = false;
-    let safeAreaProbe = null;
-
-    function readSafeAreaInsets() {
-      if (!safeAreaProbe) {
-        safeAreaProbe = document.createElement('div');
-        safeAreaProbe.style.cssText =
-          'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding:constant(safe-area-inset-top) constant(safe-area-inset-right) constant(safe-area-inset-bottom) constant(safe-area-inset-left);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
-        document.body.appendChild(safeAreaProbe);
-      }
-      const style = getComputedStyle(safeAreaProbe);
-      return {
-        top: parseFloat(style.paddingTop) || 0,
-        right: parseFloat(style.paddingRight) || 0,
-        bottom: parseFloat(style.paddingBottom) || 0,
-        left: parseFloat(style.paddingLeft) || 0,
-      };
-    }
-
-    function skyFloorSize() {
-      const safe = readSafeAreaInsets();
-      const vv = window.visualViewport;
-      const layoutH = Math.max(
-        window.innerHeight,
-        document.documentElement.clientHeight,
-        (vv?.height ?? 0) + (vv?.offsetTop ?? 0)
-      );
-      const layoutW = Math.max(
-        window.innerWidth,
-        document.documentElement.clientWidth,
-        vv?.width ?? 0
-      );
-      return {
-        w: Math.ceil(layoutW + safe.left + safe.right),
-        h: Math.ceil(layoutH + safe.top + safe.bottom),
-      };
-    }
-
-    function ensureSkyCover() {
-      const sky = document.getElementById('sky');
-      if (!sky) return;
-      const floor = skyFloorSize();
-      const rect = sky.getBoundingClientRect();
-      if (rect.height < floor.h - 1) sky.style.height = `${floor.h}px`;
-      else sky.style.height = '';
-      if (rect.width < floor.w - 1) sky.style.width = `${floor.w}px`;
-      else sky.style.width = '';
-    }
 
     function starfieldPaintSize() {
-      const cover = Math.ceil(Math.max(
+      const short = Math.ceil(Math.min(
         window.screen.width,
         window.screen.height,
         window.innerWidth,
         window.innerHeight
       ));
-      const dim = Math.min(MAX_STARFIELD_CSS, cover);
-      return { dim };
+      const long = Math.ceil(Math.max(
+        window.screen.width,
+        window.screen.height,
+        window.innerWidth,
+        window.innerHeight
+      ));
+      return {
+        w: Math.min(MAX_STARFIELD_CSS, short),
+        h: Math.min(MAX_STARFIELD_CSS, long),
+      };
     }
 
     function initStarfield(canvas) {
       if (starfieldReady && canvas.width > 0) return true;
-      const { dim } = starfieldPaintSize();
-      if (!dim) return false;
-      paintStarfield(canvas, dim, dim);
+      const { w, h } = starfieldPaintSize();
+      if (!w || !h) return false;
+      paintStarfield(canvas, w, h);
       starfieldReady = true;
       return true;
     }
@@ -895,19 +856,12 @@
         moonLayoutTimer = setTimeout(applyMoonLayout, delay);
       }
 
-      function nudgeSkyAfterRotation() {
-        ensureSkyCover();
-        [120, 400].forEach((ms) => setTimeout(ensureSkyCover, ms));
-      }
-
       function onOrientationChange() {
         clearTimeout(moonLayoutTimer);
-        suppressMoonLayoutUntil = Date.now() + 550;
-        nudgeSkyAfterRotation();
+        suppressMoonLayoutUntil = Date.now() + 600;
         clearTimeout(orientationTimer);
         orientationTimer = setTimeout(() => {
           suppressMoonLayoutUntil = 0;
-          ensureSkyCover();
           applyMoonLayout();
           if (moonZoom > 1.01) {
             moonZoomOrigin = null;
@@ -917,12 +871,8 @@
       }
 
       initStarfield(starfield);
-      ensureSkyCover();
       applyMoonLayout();
-      window.addEventListener('resize', () => {
-        ensureSkyCover();
-        scheduleMoonLayout(150);
-      });
+      window.addEventListener('resize', () => scheduleMoonLayout(200));
       window.addEventListener('orientationchange', onOrientationChange);
       window.addEventListener('pageshow', () => {
         scheduleMoonLayout(0);
