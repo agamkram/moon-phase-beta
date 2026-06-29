@@ -53,10 +53,8 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 720px;
       height: 100%;
       max-height: 100lvh;
-      margin-inline: auto;
       box-sizing: border-box;
       padding:
         max(0.5rem, env(safe-area-inset-top))
@@ -147,9 +145,6 @@
     }
 
     .moon-column {
-      display: flex;
-      justify-content: center;
-      align-items: center;
       min-height: 0;
       min-width: 0;
       width: 100%;
@@ -584,6 +579,7 @@
     }
 
     const MAX_STARFIELD_CSS = 4096;
+    const STARFIELD_RECHECK_MS = [150, 600];
     let starfieldCover = 0;
     let safeAreaProbe = null;
 
@@ -604,33 +600,42 @@
     }
 
     function starfieldCoverSize() {
+      const safe = readSafeAreaInsets();
+      const vv = window.visualViewport;
+      const edge = Math.max(
+        window.innerWidth,
+        window.innerHeight,
+        vv?.width ?? 0,
+        (vv?.height ?? 0) + (vv?.offsetTop ?? 0),
+        document.documentElement.clientHeight,
+        Math.max(screen.width, screen.height)
+      );
+      const pad = Math.max(safe.left + safe.right, safe.top + safe.bottom);
       return {
-        cover: Math.min(Math.ceil(Math.max(screen.width, screen.height)), MAX_STARFIELD_CSS),
-        safe: readSafeAreaInsets(),
+        cover: Math.min(Math.ceil(edge + pad), MAX_STARFIELD_CSS),
+        safe,
       };
-    }
-
-    function applyStarfieldGeometry(canvas, sky, cover, safe) {
-      sky.style.top = `${-safe.top}px`;
-      sky.style.left = `${-safe.left}px`;
-      sky.style.right = 'auto';
-      sky.style.bottom = 'auto';
-      sky.style.width = `${cover}px`;
-      sky.style.height = `${cover}px`;
-      canvas.style.width = `${cover}px`;
-      canvas.style.height = `${cover}px`;
     }
 
     function layoutStarfield(canvas, sky) {
       const { cover, safe } = starfieldCoverSize();
       if (!cover) return false;
 
-      applyStarfieldGeometry(canvas, sky, cover, safe);
+      sky.style.cssText =
+        `top:${-safe.top}px;left:${-safe.left}px;right:auto;bottom:auto;width:${cover}px;height:${cover}px`;
+      canvas.style.width = `${cover}px`;
+      canvas.style.height = `${cover}px`;
+
       if (cover === starfieldCover && canvas.width > 0) return true;
 
       paintStarfield(canvas, cover, cover);
       starfieldCover = cover;
       return true;
+    }
+
+    function clearStarfieldLayout(sky) {
+      starfieldCover = 0;
+      sky.style.cssText = '';
     }
 
     function paintStarfield(canvas, w, h) {
@@ -889,6 +894,7 @@
       loadMoonTexture();
 
       let moonTimer = 0;
+      let starfieldTimer = 0;
       let orientationTimer = 0;
       let suppressMoonUntil = 0;
 
@@ -908,17 +914,25 @@
       function runStarfieldLayout() {
         requestAnimationFrame(() => {
           if (!layoutStarfield(starfield, sky)) {
-            setTimeout(runStarfieldLayout, 120);
+            starfieldTimer = setTimeout(runStarfieldLayout, 120);
           }
         });
       }
 
+      function scheduleStarfieldRechecks(clear = false) {
+        if (clear) clearStarfieldLayout(sky);
+        runStarfieldLayout();
+        STARFIELD_RECHECK_MS.forEach((ms) => setTimeout(runStarfieldLayout, ms));
+      }
+
       function onViewportChange() {
+        clearTimeout(starfieldTimer);
+        starfieldTimer = setTimeout(runStarfieldLayout, 100);
         scheduleMoonLayout(200);
       }
 
       function onOrientationChange() {
-        runStarfieldLayout();
+        scheduleStarfieldRechecks(true);
         clearTimeout(moonTimer);
         suppressMoonUntil = Date.now() + 500;
         clearTimeout(orientationTimer);
@@ -933,13 +947,13 @@
         }, 350);
       }
 
-      runStarfieldLayout();
+      scheduleStarfieldRechecks();
       applyMoonLayout();
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onOrientationChange);
       window.visualViewport?.addEventListener('resize', onViewportChange);
       window.addEventListener('pageshow', (event) => {
-        runStarfieldLayout();
+        scheduleStarfieldRechecks(true);
         scheduleMoonLayout(event.persisted ? 0 : 200);
         syncLiveDisplay();
       });
