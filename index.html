@@ -1086,6 +1086,14 @@
         return { cx: moonZoomOrigin.cx, cy: moonZoomOrigin.cy };
       }
 
+      function syncZoomAnchorFromView() {
+        if (!moonScene || !moonZoomOrigin) return;
+        const vv = window.visualViewport;
+        const rect = moonScene.getBoundingClientRect();
+        moonZoomOrigin.cx = rect.left + rect.width / 2 + (vv?.offsetLeft ?? 0);
+        moonZoomOrigin.cy = rect.top + rect.height / 2 + (vv?.offsetTop ?? 0);
+      }
+
       function captureMoonZoomOrigin() {
         if (!moonScene) return;
         const vv = window.visualViewport;
@@ -1148,17 +1156,10 @@
             moonScene.style.position = 'fixed';
             moonScene.style.left = `${cx}px`;
             moonScene.style.top = `${cy}px`;
+            moonScene.style.width = `${base}px`;
+            moonScene.style.height = `${base}px`;
             moonScene.style.maxHeight = 'none';
-            if (isLivePinch()) {
-              moonScene.style.width = `${base}px`;
-              moonScene.style.height = `${base}px`;
-              moonScene.style.transform = `translate(-50%, -50%) scale(${moonZoom})`;
-            } else {
-              const layoutSize = base * moonZoom;
-              moonScene.style.width = `${layoutSize}px`;
-              moonScene.style.height = `${layoutSize}px`;
-              moonScene.style.transform = 'translate(-50%, -50%)';
-            }
+            moonScene.style.transform = `translate(-50%, -50%) scale(${moonZoom})`;
           }
         } else {
           clearMoonZoomStyles();
@@ -1191,9 +1192,9 @@
           pinching = false;
           pinchStartDist = 0;
           if (wasPinching && moonZoom > 1.01) {
+            syncZoomAnchorFromView();
             applyMoonZoom();
             repaintMoonNow(true);
-            requestAnimationFrame(() => requestAnimationFrame(() => repaintMoonNow(true)));
           }
         }
       }, { passive: true });
@@ -1217,6 +1218,7 @@
         event.preventDefault();
         gesturing = false;
         if (moonZoom > 1.01) {
+          syncZoomAnchorFromView();
           applyMoonZoom();
           repaintMoonNow(true);
         }
