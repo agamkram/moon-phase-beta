@@ -90,6 +90,7 @@
       overflow: hidden;
       transform-origin: center center;
       touch-action: none;
+      cursor: pointer;
       box-shadow:
         0 16px 36px -14px rgb(0 0 0 / 0.32),
         0 0 16px rgba(255, 252, 245, 0.15),
@@ -365,9 +366,26 @@
       background: rgb(82 82 91);
     }
 
+    /* ~630 nm astronomer red: map luminance to red only, brightness unchanged */
+    body.red-night #sky,
+    body.red-night .app-shell {
+      filter: url(#astronomer-red);
+    }
+
   </style>
 </head>
 <body class="text-white">
+  <svg aria-hidden="true" width="0" height="0" style="position:absolute">
+    <defs>
+      <filter id="astronomer-red" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="
+          0.2126 0.7152 0.0722 0 0
+          0 0 0 0 0
+          0 0 0 0 0
+          0 0 0 1 0" />
+      </filter>
+    </defs>
+  </svg>
   <div id="sky" aria-hidden="true">
     <canvas id="starfield"></canvas>
   </div>
@@ -397,7 +415,7 @@
     <div class="moon-column">
       <div class="moon-slot">
         <div class="moon-wrap" id="moon-wrap">
-          <canvas id="moon-canvas" aria-label="Moon phase rendering"></canvas>
+          <canvas id="moon-canvas" aria-label="Moon phase rendering. Tap to toggle astronomer red night mode."></canvas>
         </div>
       </div>
     </div>
@@ -410,19 +428,19 @@
         <div class="stat-unit">percent</div>
       </div>
 
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Age</div>
         <div class="stat-value text-white" id="moon-age">—</div>
         <div class="stat-unit">days</div>
       </div>
 
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">To Full</div>
         <div class="stat-value text-white" id="days-to-full">—</div>
         <div class="stat-unit">days</div>
       </div>
 
-      <button type="button" id="moon-distance-card" class="stat-card stat-card--toggle bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4" aria-label="Moon distance, tap to switch units">
+      <button type="button" id="moon-distance-card" class="stat-card stat-card--toggle bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1 py-2.5 sm:px-4 sm:py-4" aria-label="Moon distance, tap to switch units">
         <div class="stat-label text-zinc-500 mb-1.5">Distance</div>
         <div class="stat-value text-white" id="moon-distance">—</div>
         <div class="stat-unit" id="moon-distance-unit">thousand mi</div>
@@ -458,6 +476,12 @@
   <script src="astronomy.js"></script>
   <script>
     const SYNODIC = 29.530588853;
+    const RED_NIGHT_KEY = 'redNight';
+    const THEME_NORMAL = '#030408';
+    const THEME_RED = '#030000';
+    const MOON_TAP_SLOP = 12;
+    let redNight = false;
+    let moonTap = null;
     const MOON_SRC = 'moon.jpg?v=4096e';
     const TEXTURE_SIZE = 4096;
     const EARTHSHINE = 0.55;
@@ -1433,8 +1457,45 @@
         applyMoonZoom();
       }, { passive: false });
 
+      function setRedNight(on) {
+        redNight = on;
+        document.body.classList.toggle('red-night', on);
+        const theme = document.querySelector('meta[name="theme-color"]');
+        if (theme) theme.content = on ? THEME_RED : THEME_NORMAL;
+        try { localStorage.setItem(RED_NIGHT_KEY, on ? '1' : '0'); } catch (_) {}
+      }
+
+      function loadRedNight() {
+        try {
+          if (localStorage.getItem(RED_NIGHT_KEY) === '1') setRedNight(true);
+        } catch (_) {}
+      }
+
+      function beginMoonTap(event) {
+        if (pinching || gesturing) return;
+        if (event.pointerType === 'mouse' && event.button !== 0) return;
+        moonTap = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+      }
+
+      function trackMoonTap(event) {
+        if (!moonTap || moonTap.id !== event.pointerId || moonTap.moved) return;
+        const dx = event.clientX - moonTap.x;
+        const dy = event.clientY - moonTap.y;
+        if (dx * dx + dy * dy > MOON_TAP_SLOP * MOON_TAP_SLOP) moonTap.moved = true;
+      }
+
+      function finishMoonTap(event) {
+        if (!moonTap || moonTap.id !== event.pointerId) return;
+        const shouldToggle = !moonTap.moved && !pinching && !gesturing;
+        moonTap = null;
+        if (shouldToggle) setRedNight(!redNight);
+      }
+
+      loadRedNight();
+
       if (moon.wrap) {
         moon.wrap.addEventListener('pointerdown', (event) => {
+          beginMoonTap(event);
           if (moonZoom <= ZOOM_EPS || pinching || gesturing) return;
           if (event.pointerType === 'mouse' && event.button !== 0) return;
           panning = true;
@@ -1451,6 +1512,7 @@
         });
 
         moon.wrap.addEventListener('pointermove', (event) => {
+          trackMoonTap(event);
           if (!panning || event.pointerId !== panPointerId) return;
           moonPan.x = panStart.panX + (event.clientX - panStart.x);
           moonPan.y = panStart.panY + (event.clientY - panStart.y);
@@ -1459,11 +1521,13 @@
         });
 
         moon.wrap.addEventListener('pointerup', (event) => {
+          finishMoonTap(event);
           if (!panning || event.pointerId !== panPointerId) return;
           stopPanning();
         });
 
         moon.wrap.addEventListener('pointercancel', (event) => {
+          if (moonTap?.id === event.pointerId) moonTap = null;
           if (!panning || event.pointerId !== panPointerId) return;
           stopPanning();
         });
