@@ -14,50 +14,38 @@
 
     html {
       height: 100%;
-      min-height: 100lvh;
-      background-color: #020308;
-      background-image:
-        radial-gradient(ellipse 130% 95% at 38% 18%, #121a2f 0%, #080c16 42%, #020308 100%);
+      background: #020308;
     }
 
     body {
       margin: 0;
-      min-height: 100lvh;
-      height: 100lvh;
+      height: 100dvh;
+      max-height: 100dvh;
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      background: transparent;
+      background: #020308;
     }
 
     #sky {
       position: fixed;
       z-index: 0;
       pointer-events: none;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      min-height: 100lvh;
-      min-height: -webkit-fill-available;
       margin: 0;
       padding: 0;
+      background: #020308;
       overflow: hidden;
-      background:
-        radial-gradient(ellipse 130% 95% at 38% 18%, #121a2f 0%, #080c16 42%, #020308 100%);
+      top: calc(-1 * env(safe-area-inset-top, 0px));
+      left: calc(-1 * env(safe-area-inset-left, 0px));
+      right: calc(-1 * env(safe-area-inset-right, 0px));
+      bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
     }
 
     #starfield {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
       display: block;
-      min-width: 100%;
-      min-height: 100%;
-      width: auto;
-      height: auto;
       margin: 0;
       padding: 0;
       border: 0;
+      vertical-align: top;
     }
 
     .app-shell {
@@ -65,7 +53,7 @@
       z-index: 1;
       width: 100%;
       height: 100%;
-      max-height: 100lvh;
+      max-height: 100dvh;
       box-sizing: border-box;
       padding:
         max(0.5rem, env(safe-area-inset-top))
@@ -578,18 +566,96 @@
       ctx.restore();
     }
 
-    const MAX_STARFIELD_CSS = 2048;
-    let starfieldReady = false;
+    const MAX_STARFIELD_CSS = 4096;
+    let starfieldPaint = { w: 0, h: 0 };
+    let safeAreaProbe = null;
+    const viewportProbes = {};
 
-    function initStarfieldOnce(canvas) {
-      if (starfieldReady) return;
-      const dim = Math.min(
-        MAX_STARFIELD_CSS,
-        Math.ceil(Math.max(window.screen.width, window.screen.height))
+    function readSafeAreaInsets() {
+      if (!safeAreaProbe) {
+        safeAreaProbe = document.createElement('div');
+        safeAreaProbe.style.cssText =
+          'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding:constant(safe-area-inset-top) constant(safe-area-inset-right) constant(safe-area-inset-bottom) constant(safe-area-inset-left);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+        document.body.appendChild(safeAreaProbe);
+      }
+      const style = getComputedStyle(safeAreaProbe);
+      return {
+        top: parseFloat(style.paddingTop) || 0,
+        right: parseFloat(style.paddingRight) || 0,
+        bottom: parseFloat(style.paddingBottom) || 0,
+        left: parseFloat(style.paddingLeft) || 0,
+      };
+    }
+
+    function readViewportUnit(unit) {
+      if (!viewportProbes[unit]) {
+        const probe = document.createElement('div');
+        probe.style.cssText =
+          `position:fixed;top:0;left:0;height:100${unit};visibility:hidden;pointer-events:none`;
+        document.body.appendChild(probe);
+        viewportProbes[unit] = probe;
+      }
+      return viewportProbes[unit].getBoundingClientRect().height;
+    }
+
+    function viewportCoverSize() {
+      const safe = readSafeAreaInsets();
+      const vv = window.visualViewport;
+      const visualH = (vv?.height ?? 0) + (vv?.offsetTop ?? 0);
+      const visualW = vv?.width ?? window.innerWidth;
+      const layoutH = Math.max(
+        window.innerHeight,
+        document.documentElement.clientHeight,
+        readViewportUnit('vh'),
+        readViewportUnit('svh'),
+        readViewportUnit('dvh'),
+        readViewportUnit('lvh'),
+        visualH
       );
-      if (!dim) return;
-      paintStarfield(canvas, dim, dim);
-      starfieldReady = true;
+      const layoutW = Math.max(window.innerWidth, visualW, document.documentElement.clientWidth);
+      return {
+        w: Math.min(Math.ceil(layoutW + safe.left + safe.right), MAX_STARFIELD_CSS),
+        h: Math.min(Math.ceil(layoutH + safe.top + safe.bottom), MAX_STARFIELD_CSS),
+        safe,
+      };
+    }
+
+    function layoutStarfield(canvas, sky) {
+      const safe = readSafeAreaInsets();
+      const fallback = viewportCoverSize();
+
+      sky.style.top = `${-safe.top}px`;
+      sky.style.left = `${-safe.left}px`;
+      sky.style.right = `${-safe.right}px`;
+      sky.style.bottom = `${-safe.bottom}px`;
+      sky.style.width = '';
+      sky.style.height = '';
+
+      const rect = sky.getBoundingClientRect();
+      let w = Math.max(Math.ceil(rect.width), fallback.w);
+      let h = Math.max(Math.ceil(rect.height), fallback.h);
+
+      if (!w || !h) return false;
+
+      if (w > fallback.w || h > fallback.h) {
+        sky.style.right = 'auto';
+        sky.style.bottom = 'auto';
+        sky.style.width = `${w}px`;
+        sky.style.height = `${h}px`;
+      }
+
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+
+      if (w === starfieldPaint.w && h === starfieldPaint.h && canvas.width > 0) return true;
+
+      paintStarfield(canvas, w, h);
+      starfieldPaint = { w, h };
+      return true;
+    }
+
+    function resetStarfieldLayout() {
+      starfieldPaint = { w: 0, h: 0 };
     }
 
     function paintStarfield(canvas, w, h) {
@@ -801,6 +867,7 @@
     }
 
     function init() {
+      const sky = document.getElementById('sky');
       const starfield = document.getElementById('starfield');
       const canvas = document.getElementById('moon-canvas');
       const moonCtx = canvas.getContext('2d', { alpha: true, desynchronized: true });
@@ -847,8 +914,9 @@
       loadMoonTexture();
 
       let viewportTimer = 0;
+      let starfieldTimer = 0;
       let orientationTimer = 0;
-      let suppressViewportUntil = 0;
+      let suppressMoonUntil = 0;
 
       function applyMoonLayout() {
         requestAnimationFrame(() => {
@@ -858,17 +926,34 @@
       }
 
       function scheduleMoonLayout(delay = 150) {
-        if (Date.now() < suppressViewportUntil) return;
+        if (Date.now() < suppressMoonUntil) return;
         clearTimeout(viewportTimer);
         viewportTimer = setTimeout(applyMoonLayout, delay);
       }
 
+      function scheduleStarfield() {
+        clearTimeout(starfieldTimer);
+        starfieldTimer = setTimeout(() => {
+          requestAnimationFrame(() => {
+            if (!layoutStarfield(starfield, sky)) setTimeout(scheduleStarfield, 120);
+          });
+        }, 100);
+      }
+
+      function onViewportChange() {
+        scheduleStarfield();
+        scheduleMoonLayout(200);
+      }
+
       function onOrientationChange() {
+        resetStarfieldLayout();
         clearTimeout(viewportTimer);
-        suppressViewportUntil = Date.now() + 500;
+        suppressMoonUntil = Date.now() + 500;
         clearTimeout(orientationTimer);
+        onViewportChange();
+        [150, 350, 600].forEach((ms) => setTimeout(onViewportChange, ms));
         orientationTimer = setTimeout(() => {
-          suppressViewportUntil = 0;
+          suppressMoonUntil = 0;
           applyMoonLayout();
           if (moonZoom > 1.01) {
             moonZoomOrigin = null;
@@ -877,12 +962,13 @@
         }, 350);
       }
 
-      initStarfieldOnce(starfield);
+      scheduleStarfield();
       applyMoonLayout();
-      window.addEventListener('resize', () => scheduleMoonLayout(200));
+      window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onOrientationChange);
+      window.visualViewport?.addEventListener('resize', onViewportChange);
       window.addEventListener('pageshow', () => {
-        scheduleMoonLayout(0);
+        onViewportChange();
         syncLiveDisplay();
       });
       drawMoon(moonCtx, false, 0, 0);
