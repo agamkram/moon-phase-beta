@@ -360,7 +360,7 @@
     </div>
 
     <div class="app-footer px-1">
-    <div class="grid grid-cols-3 gap-2 sm:gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
       <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
         <div class="stat-value text-white" id="illumination">—</div>
@@ -377,6 +377,12 @@
         <div class="stat-label text-zinc-500 mb-1.5">To Full</div>
         <div class="stat-value text-white" id="days-to-full">—</div>
         <div class="stat-unit">days</div>
+      </div>
+
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+        <div class="stat-label text-zinc-500 mb-1.5">Distance</div>
+        <div class="stat-value text-white" id="moon-distance">—</div>
+        <div class="stat-unit">thousand km</div>
       </div>
     </div>
 
@@ -451,7 +457,16 @@
       return {
         phase: Astronomy.MoonPhase(date) / 360,
         fraction: illum.phase_fraction,
+        distanceKm: illum.geo_dist * Astronomy.KM_PER_AU,
       };
+    }
+
+    function moonDistanceKm(date = new Date()) {
+      return Astronomy.Illumination(Astronomy.Body.Moon, date).geo_dist * Astronomy.KM_PER_AU;
+    }
+
+    function formatMoonDistanceThousands(km) {
+      return (km / 1000).toFixed(1);
     }
 
     function phaseIllum(phase) {
@@ -883,6 +898,7 @@
       const illumEl = document.getElementById('illumination');
       const ageEl = document.getElementById('moon-age');
       const daysToFullEl = document.getElementById('days-to-full');
+      const distanceEl = document.getElementById('moon-distance');
       const phaseNameEl = document.getElementById('phase-name');
       const slider = document.getElementById('phase-slider');
       const sliderLabel = document.getElementById('slider-label');
@@ -1003,15 +1019,16 @@
       });
       drawMoon(moonCtx, 0, 0);
 
-      function updateStats(phase, illumination) {
+      function updateStats(phase, illumination, date = currentDate) {
         phaseNameEl.textContent = getPhaseName(phase);
         illumEl.textContent = (illumination * 100).toFixed(1);
         ageEl.textContent = (phase * SYNODIC).toFixed(1);
         daysToFullEl.textContent = daysToFull(phase).toFixed(1);
+        distanceEl.textContent = formatMoonDistanceThousands(moonDistanceKm(date));
       }
 
-      function updateDisplay(phase, illumination) {
-        updateStats(phase, illumination);
+      function updateDisplay(phase, illumination, date = currentDate) {
+        updateStats(phase, illumination, date);
         drawMoon(moonCtx, phase, illumination);
       }
 
@@ -1040,7 +1057,7 @@
           pendingPreviewPhase = null;
           pendingPreviewDate = null;
           const illum = phaseIllum(previewPhase);
-          updateStats(previewPhase, illum);
+          updateStats(previewPhase, illum, previewDate);
           drawMoon(moonCtx, previewPhase, illum);
           if (previewDate) updateDateDisplay(previewDate);
         });
@@ -1061,7 +1078,7 @@
         slider.value = Math.round(data.phase * 1000);
         sliderLabel.textContent = 'Live phase';
         updateDateDisplay(now);
-        updateDisplay(data.phase, data.fraction);
+        updateDisplay(data.phase, data.fraction, now);
         updateLiveButton();
       }
 
