@@ -47,6 +47,11 @@
 
     #starfield {
       display: block;
+      opacity: 0;
+    }
+
+    #starfield.is-ready {
+      opacity: 1;
     }
 
     .app-shell {
@@ -145,6 +150,9 @@
     }
 
     .moon-column {
+      display: flex;
+      justify-content: center;
+      align-items: center;
       min-height: 0;
       min-width: 0;
       width: 100%;
@@ -579,7 +587,7 @@
     }
 
     const MAX_STARFIELD_CSS = 4096;
-    const STARFIELD_RECHECK_MS = [150, 600];
+    const STARFIELD_BOOT_MS = [150, 600];
     let starfieldCover = 0;
     let safeAreaProbe = null;
 
@@ -621,21 +629,25 @@
       const { cover, safe } = starfieldCoverSize();
       if (!cover) return false;
 
+      const size = Math.max(cover, starfieldCover);
       sky.style.cssText =
-        `top:${-safe.top}px;left:${-safe.left}px;right:auto;bottom:auto;width:${cover}px;height:${cover}px`;
-      canvas.style.width = `${cover}px`;
-      canvas.style.height = `${cover}px`;
+        `top:${-safe.top}px;left:${-safe.left}px;right:auto;bottom:auto;width:${size}px;height:${size}px`;
+      canvas.style.width = `${size}px`;
+      canvas.style.height = `${size}px`;
 
-      if (cover === starfieldCover && canvas.width > 0) return true;
+      if (size === starfieldCover && canvas.width > 0) {
+        canvas.classList.add('is-ready');
+        return true;
+      }
 
-      paintStarfield(canvas, cover, cover);
-      starfieldCover = cover;
+      paintStarfield(canvas, size, size);
+      starfieldCover = size;
+      canvas.classList.add('is-ready');
       return true;
     }
 
-    function clearStarfieldLayout(sky) {
+    function resetStarfieldPaint() {
       starfieldCover = 0;
-      sky.style.cssText = '';
     }
 
     function paintStarfield(canvas, w, h) {
@@ -897,6 +909,7 @@
       let starfieldTimer = 0;
       let orientationTimer = 0;
       let suppressMoonUntil = 0;
+      let starfieldBootUntil = performance.now() + 900;
 
       function applyMoonLayout() {
         requestAnimationFrame(() => {
@@ -919,20 +932,22 @@
         });
       }
 
-      function scheduleStarfieldRechecks(clear = false) {
-        if (clear) clearStarfieldLayout(sky);
-        runStarfieldLayout();
-        STARFIELD_RECHECK_MS.forEach((ms) => setTimeout(runStarfieldLayout, ms));
+      function scheduleStarfieldBoot() {
+        STARFIELD_BOOT_MS.forEach((ms) => setTimeout(runStarfieldLayout, ms));
       }
 
       function onViewportChange() {
+        scheduleMoonLayout(200);
+        if (performance.now() < starfieldBootUntil) return;
         clearTimeout(starfieldTimer);
         starfieldTimer = setTimeout(runStarfieldLayout, 100);
-        scheduleMoonLayout(200);
       }
 
       function onOrientationChange() {
-        scheduleStarfieldRechecks(true);
+        starfieldBootUntil = 0;
+        resetStarfieldPaint();
+        scheduleStarfieldBoot();
+        runStarfieldLayout();
         clearTimeout(moonTimer);
         suppressMoonUntil = Date.now() + 500;
         clearTimeout(orientationTimer);
@@ -947,13 +962,16 @@
         }, 350);
       }
 
-      scheduleStarfieldRechecks();
+      scheduleStarfieldBoot();
       applyMoonLayout();
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onOrientationChange);
       window.visualViewport?.addEventListener('resize', onViewportChange);
       window.addEventListener('pageshow', (event) => {
-        scheduleStarfieldRechecks(true);
+        starfieldBootUntil = 0;
+        resetStarfieldPaint();
+        scheduleStarfieldBoot();
+        runStarfieldLayout();
         scheduleMoonLayout(event.persisted ? 0 : 200);
         syncLiveDisplay();
       });
