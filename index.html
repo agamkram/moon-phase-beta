@@ -123,6 +123,28 @@
 
     .stat-card {
       min-width: 0;
+      text-align: center;
+    }
+
+    .stat-card--toggle {
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      width: 100%;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .stat-card--toggle:hover {
+      background: rgba(39, 39, 42, 0.82);
+    }
+
+    .stat-card--toggle:focus-visible {
+      outline: 2px solid rgba(212, 212, 216, 0.45);
+      outline-offset: 2px;
+    }
+
+    .stats-row .stat-value {
+      font-size: 1.25rem;
     }
 
     .stat-value {
@@ -134,6 +156,7 @@
     }
 
     @media (min-width: 640px) {
+      .stats-row .stat-value,
       .stat-value {
         font-size: 1.875rem;
       }
@@ -360,30 +383,30 @@
     </div>
 
     <div class="app-footer px-1">
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+    <div class="stats-row grid grid-cols-4 gap-1 sm:gap-3">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
         <div class="stat-value text-white" id="illumination">—</div>
         <div class="stat-unit">percent</div>
       </div>
 
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Age</div>
         <div class="stat-value text-white" id="moon-age">—</div>
         <div class="stat-unit">days</div>
       </div>
 
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">To Full</div>
         <div class="stat-value text-white" id="days-to-full">—</div>
         <div class="stat-unit">days</div>
       </div>
 
-      <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-2.5 py-3 sm:px-4 sm:py-4">
+      <button type="button" id="moon-distance-card" class="stat-card stat-card--toggle bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1.5 py-2.5 sm:px-4 sm:py-4" aria-label="Moon distance, tap to switch units">
         <div class="stat-label text-zinc-500 mb-1.5">Distance</div>
         <div class="stat-value text-white" id="moon-distance">—</div>
-        <div class="stat-unit">thousand km</div>
-      </div>
+        <div class="stat-unit" id="moon-distance-unit">thousand mi</div>
+      </button>
     </div>
 
     <p id="moon-date" class="text-center text-sm sm:text-base text-zinc-400 mt-2">—</p>
@@ -465,8 +488,15 @@
       return Astronomy.Illumination(Astronomy.Body.Moon, date).geo_dist * Astronomy.KM_PER_AU;
     }
 
-    function formatMoonDistanceThousands(km) {
-      return (km / 1000).toFixed(1);
+    const KM_PER_MI = 0.62137119224;
+
+    function formatMoonDistanceThousands(km, useKm = false) {
+      const thousands = useKm ? km / 1000 : (km * KM_PER_MI) / 1000;
+      return thousands.toFixed(1);
+    }
+
+    function moonDistanceUnitLabel(useKm = false) {
+      return useKm ? 'thousand km' : 'thousand mi';
     }
 
     function phaseIllum(phase) {
@@ -899,6 +929,10 @@
       const ageEl = document.getElementById('moon-age');
       const daysToFullEl = document.getElementById('days-to-full');
       const distanceEl = document.getElementById('moon-distance');
+      const distanceUnitEl = document.getElementById('moon-distance-unit');
+      const distanceCard = document.getElementById('moon-distance-card');
+      let distanceUseKm = false;
+      let lastDistanceKm = 0;
       const phaseNameEl = document.getElementById('phase-name');
       const slider = document.getElementById('phase-slider');
       const sliderLabel = document.getElementById('slider-label');
@@ -1019,13 +1053,24 @@
       });
       drawMoon(moonCtx, 0, 0);
 
+      function updateDistanceDisplay(date = currentDate) {
+        lastDistanceKm = moonDistanceKm(date);
+        distanceEl.textContent = formatMoonDistanceThousands(lastDistanceKm, distanceUseKm);
+        distanceUnitEl.textContent = moonDistanceUnitLabel(distanceUseKm);
+      }
+
       function updateStats(phase, illumination, date = currentDate) {
         phaseNameEl.textContent = getPhaseName(phase);
         illumEl.textContent = (illumination * 100).toFixed(1);
         ageEl.textContent = (phase * SYNODIC).toFixed(1);
         daysToFullEl.textContent = daysToFull(phase).toFixed(1);
-        distanceEl.textContent = formatMoonDistanceThousands(moonDistanceKm(date));
+        updateDistanceDisplay(date);
       }
+
+      distanceCard.addEventListener('click', () => {
+        distanceUseKm = !distanceUseKm;
+        updateDistanceDisplay();
+      });
 
       function updateDisplay(phase, illumination, date = currentDate) {
         updateStats(phase, illumination, date);
