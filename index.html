@@ -63,7 +63,8 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto;
       gap: 0.35rem;
-      overflow: hidden;
+      overflow-x: visible;
+      overflow-y: hidden;
     }
 
     .app-footer {
@@ -76,17 +77,23 @@
       letter-spacing: -0.02em;
     }
 
-    .moon-wrap {
+    .moon-halo {
       width: 100%;
-      height: 100%;
+      aspect-ratio: 1;
       border-radius: 50%;
-      overflow: hidden;
       box-shadow:
         0 16px 36px -14px rgb(0 0 0 / 0.32),
         0 0 16px rgba(255, 252, 245, 0.15),
         0 0 32px rgba(225, 236, 255, 0.32),
         0 0 64px rgba(195, 215, 255, 0.19),
         0 0 100px rgba(170, 195, 255, 0.08);
+    }
+
+    .moon-wrap {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
     }
 
     .stat-label {
@@ -141,6 +148,8 @@
       min-width: 0;
       width: 100%;
       margin: 0 !important;
+      padding-inline: 1.75rem;
+      box-sizing: border-box;
       overflow: visible;
     }
 
@@ -158,12 +167,18 @@
 
     .moon-scene {
       position: relative;
-      width: min(100%, 88vmin, 720px);
+      width: min(54vmin, 320px);
       max-width: 100%;
       aspect-ratio: 1;
       height: auto;
-      max-height: 100%;
+      flex-shrink: 0;
       transform-origin: center center;
+    }
+
+    @media (min-width: 768px) {
+      .moon-scene {
+        width: min(48vmin, 360px);
+      }
     }
 
     #phase-slider {
@@ -304,8 +319,10 @@
 
     <div class="moon-column flex justify-center items-center">
       <div class="moon-scene">
-        <div class="moon-wrap">
-          <canvas id="moon-canvas" aria-label="Moon phase rendering"></canvas>
+        <div class="moon-halo">
+          <div class="moon-wrap">
+            <canvas id="moon-canvas" aria-label="Moon phase rendering"></canvas>
+          </div>
         </div>
       </div>
     </div>
