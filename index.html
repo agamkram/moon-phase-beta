@@ -87,12 +87,23 @@
       width: 100%;
       aspect-ratio: 1;
       border-radius: 50%;
+      transform-origin: center center;
       box-shadow:
         0 16px 36px -14px rgb(0 0 0 / 0.32),
         0 0 16px rgba(255, 252, 245, 0.15),
         0 0 32px rgba(225, 236, 255, 0.32),
         0 0 64px rgba(195, 215, 255, 0.19),
         0 0 100px rgba(170, 195, 255, 0.08);
+    }
+
+    .moon-halo.is-zoomed {
+      z-index: 20;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .moon-halo.is-zoomed.is-panning {
+      cursor: grabbing;
     }
 
     .moon-wrap {
@@ -247,16 +258,6 @@
         padding-top: max(0.75rem, env(safe-area-inset-top));
         padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
       }
-    }
-
-    .moon-scene.is-zoomed {
-      z-index: 20;
-      touch-action: none;
-      cursor: grab;
-    }
-
-    .moon-scene.is-zoomed.is-panning {
-      cursor: grabbing;
     }
 
     #moon-canvas {
@@ -427,8 +428,8 @@
       if (moonBaseSize > 0) return moonBaseSize;
       const slot = document.querySelector('.moon-slot');
       if (slot?.offsetWidth > 0) return slot.offsetWidth;
-      const scene = document.querySelector('.moon-scene');
-      if (scene?.offsetWidth > 0) return scene.offsetWidth;
+      const halo = document.querySelector('.moon-halo');
+      if (halo?.offsetWidth > 0) return halo.offsetWidth;
       return Math.min(window.innerWidth * 0.78, 360);
     }
 
@@ -957,7 +958,7 @@
       }
 
       function onViewportChange() {
-        scheduleMoonLayout(200);
+        if (!isLivePinch() && !layoutFrozen) scheduleMoonLayout(200);
         if (performance.now() < starfieldBootUntil) return;
         clearTimeout(starfieldTimer);
         starfieldTimer = setTimeout(runStarfieldLayout, 100);
@@ -1087,7 +1088,7 @@
       hemSouth.addEventListener('click', () => setHemisphere(false));
 
       const moonSlot = document.querySelector('.moon-slot');
-      const moonScene = document.querySelector('.moon-scene');
+      const moonHalo = document.querySelector('.moon-halo');
       let layoutFrozen = false;
       let pinchStartDist = 0;
       let pinchStartZoom = 1;
@@ -1159,10 +1160,10 @@
       }
 
       function syncZoomAnchorFromView() {
-        if (!moonScene) return;
+        if (!moonHalo) return;
         if (!moonHomeOrigin) captureMoonHome();
         if (!moonHomeOrigin) return;
-        const current = layoutAnchorFromRect(moonScene.getBoundingClientRect());
+        const current = layoutAnchorFromRect(moonHalo.getBoundingClientRect());
         moonPan.x = current.cx - moonHomeOrigin.cx;
         moonPan.y = current.cy - moonHomeOrigin.cy;
         const clamped = clampMoonPan(moonPan.x, moonPan.y);
@@ -1171,12 +1172,12 @@
       }
 
       function captureMoonZoomOrigin() {
-        if (!moonScene) return;
+        if (!moonHalo) return;
         if (!(moonZoom > 1.01 && moonBaseSize > 0)) {
-          const sceneW = moonScene.offsetWidth > 0 ? moonScene.offsetWidth : 0;
-          const layoutW = moonZoom > 1.01 && sceneW > 0
-            ? sceneW
-            : (moonSlot?.offsetWidth || sceneW);
+          const haloW = moonHalo.offsetWidth > 0 ? moonHalo.offsetWidth : 0;
+          const layoutW = moonZoom > 1.01 && haloW > 0
+            ? haloW
+            : (moonSlot?.offsetWidth || haloW);
           if (moonZoom > 1.01 && layoutW > 0) {
             moonBaseSize = layoutW / moonZoom;
           } else {
@@ -1186,28 +1187,39 @@
         if (!moonHomeOrigin) captureMoonHome();
       }
 
+      function setMoonZoomLayout(cx, cy, size, transform) {
+        moonHalo.style.position = 'fixed';
+        moonHalo.style.left = `${cx}px`;
+        moonHalo.style.top = `${cy}px`;
+        moonHalo.style.width = `${size}px`;
+        moonHalo.style.height = `${size}px`;
+        moonHalo.style.maxHeight = 'none';
+        moonHalo.style.margin = '0';
+        moonHalo.style.transform = transform;
+      }
+
       function stopPanning() {
-        if (!panning || !moonScene) return;
+        if (!panning || !moonHalo) return;
         const id = panPointerId;
         panning = false;
         panPointerId = null;
-        moonScene.classList.remove('is-panning');
+        moonHalo.classList.remove('is-panning');
         if (id != null) {
-          try { moonScene.releasePointerCapture(id); } catch (_) {}
+          try { moonHalo.releasePointerCapture(id); } catch (_) {}
         }
       }
 
       function clearMoonZoomStyles() {
-        if (!moonScene) return;
+        if (!moonHalo) return;
         moonPan = { x: 0, y: 0 };
         moonHomeOrigin = null;
         stopPanning();
         moonBaseSize = 0;
         document.body.classList.remove('moon-zoomed');
-        moonScene.classList.remove('is-zoomed');
+        moonHalo.classList.remove('is-zoomed');
         unfreezePageLayout();
-        for (const prop of ['position', 'left', 'top', 'width', 'height', 'maxHeight', 'transform']) {
-          moonScene.style.removeProperty(prop);
+        for (const prop of ['position', 'left', 'top', 'width', 'height', 'maxHeight', 'margin', 'transform']) {
+          moonHalo.style.removeProperty(prop);
         }
       }
 
@@ -1237,15 +1249,15 @@
         syncZoomAnchorFromView();
         applyMoonZoom();
         repaintMoonNow(true);
-        if (moonZoom > 1.01 && isTabletView()) {
+        if (moonZoom > 1.01) {
           requestAnimationFrame(() => requestAnimationFrame(() => repaintMoonNow(true)));
         }
       }
 
       function applyMoonZoom(repaint = true) {
-        if (!moonScene) return;
+        if (!moonHalo) return;
         const zoomed = moonZoom > 1.01;
-        moonScene.classList.toggle('is-zoomed', zoomed);
+        moonHalo.classList.toggle('is-zoomed', zoomed);
         document.body.classList.toggle('moon-zoomed', zoomed);
 
         if (!zoomed) {
@@ -1262,18 +1274,11 @@
         const { cx, cy } = getMoonCenter();
 
         if (pinching || gesturing) {
-          moonScene.style.cssText =
-            `position:fixed;left:${cx}px;top:${cy}px;` +
-            `width:${base}px;height:${base}px;max-height:none;` +
-            `transform:translate(-50%,-50%) scale(${moonZoom})`;
+          setMoonZoomLayout(cx, cy, base, `translate(-50%, -50%) scale(${moonZoom})`);
           return;
         }
 
-        const size = base * moonZoom;
-        moonScene.style.cssText =
-          `position:fixed;left:${cx}px;top:${cy}px;` +
-          `width:${size}px;height:${size}px;max-height:none;` +
-          'transform:translate(-50%,-50%)';
+        setMoonZoomLayout(cx, cy, base * moonZoom, 'translate(-50%, -50%)');
         if (repaint) scheduleMoonRepaint();
       }
 
@@ -1346,8 +1351,8 @@
         applyMoonZoom();
       }, { passive: false });
 
-      if (moonScene) {
-        moonScene.addEventListener('pointerdown', (event) => {
+      if (moonHalo) {
+        moonHalo.addEventListener('pointerdown', (event) => {
           if (moonZoom <= 1.01 || pinching || gesturing) return;
           if (event.pointerType === 'mouse' && event.button !== 0) return;
           panning = true;
@@ -1358,12 +1363,12 @@
             panX: moonPan.x,
             panY: moonPan.y,
           };
-          moonScene.classList.add('is-panning');
-          moonScene.setPointerCapture(event.pointerId);
+          moonHalo.classList.add('is-panning');
+          moonHalo.setPointerCapture(event.pointerId);
           event.preventDefault();
         });
 
-        moonScene.addEventListener('pointermove', (event) => {
+        moonHalo.addEventListener('pointermove', (event) => {
           if (!panning || event.pointerId !== panPointerId) return;
           moonPan.x = panStart.panX + (event.clientX - panStart.x);
           moonPan.y = panStart.panY + (event.clientY - panStart.y);
@@ -1371,12 +1376,12 @@
           event.preventDefault();
         });
 
-        moonScene.addEventListener('pointerup', (event) => {
+        moonHalo.addEventListener('pointerup', (event) => {
           if (!panning || event.pointerId !== panPointerId) return;
           stopPanning();
         });
 
-        moonScene.addEventListener('pointercancel', (event) => {
+        moonHalo.addEventListener('pointercancel', (event) => {
           if (!panning || event.pointerId !== panPointerId) return;
           stopPanning();
         });
