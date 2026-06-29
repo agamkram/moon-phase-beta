@@ -244,12 +244,49 @@
     }
 
     #phase-slider {
+      -webkit-appearance: none;
+      appearance: none;
       display: block;
       width: 100%;
-      min-height: 44px;
+      height: 44px;
       margin: 0;
       cursor: pointer;
+      background: transparent;
       touch-action: pan-y;
+    }
+
+    #phase-slider::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    #phase-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 13px solid transparent;
+      background: rgb(212 212 216);
+      background-clip: padding-box;
+      border-radius: 50%;
+      margin-top: -19.5px;
+    }
+
+    #phase-slider::-moz-range-track {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 0;
+    }
+
+    #phase-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border: 13px solid transparent;
+      background: rgb(212 212 216);
+      background-clip: padding-box;
+      border-radius: 50%;
+      box-sizing: content-box;
     }
 
     .slider-wrap {
@@ -368,6 +405,7 @@
 
     body.red-night {
       --sky-fill: radial-gradient(ellipse 130% 95% at 38% 18%, #4a1414 0%, #240808 42%, #140404 100%);
+      color: #f2d0d0;
     }
 
     body.red-night html {
@@ -379,10 +417,62 @@
       background: var(--sky-fill);
     }
 
-    /* ~630 nm astronomer red for UI: luminance → red channel, brightness unchanged */
-    body.red-night .app-shell {
+    body.red-night .text-white { color: #f2d0d0; }
+    body.red-night .text-zinc-300 { color: rgb(232 192 192); }
+    body.red-night .text-zinc-400 { color: rgb(200 160 160); }
+    body.red-night .text-zinc-500 { color: rgb(176 128 128); }
+    body.red-night .text-zinc-600 { color: rgb(160 112 112); }
+
+    body.red-night .stat-card,
+    body.red-night #phase-name {
+      background: rgb(40 12 12 / 0.6) !important;
+      border-color: rgb(80 28 28) !important;
+    }
+
+    body.red-night .hem-btn {
+      border-color: rgb(80 28 28);
+      background: rgb(40 12 12 / 0.6);
+      color: rgb(232 192 192);
+    }
+
+    body.red-night .hem-btn:hover {
+      color: #f2d0d0;
+      background: rgb(56 16 16 / 0.82);
+    }
+
+    body.red-night .hem-btn.active {
+      background: rgb(88 28 28);
+      border-color: rgb(120 40 40);
+      color: #f2d0d0;
+    }
+
+    body.red-night .live-btn.is-live {
+      color: rgb(176 128 128);
+    }
+
+    body.red-night .live-btn.is-preview {
+      color: #f2d0d0;
+      background: rgb(88 28 28);
+      border-color: rgb(120 40 40);
+    }
+
+    body.red-night .live-btn.is-preview:hover {
+      background: rgb(104 32 32);
+    }
+
+    body.red-night .moon-wrap {
       -webkit-filter: url(#astronomer-red);
       filter: url(#astronomer-red);
+    }
+
+    body.red-night #phase-slider::-webkit-slider-runnable-track,
+    body.red-night #phase-slider::-moz-range-track {
+      background: rgba(200, 100, 100, 0.28);
+    }
+
+    body.red-night #phase-slider::-webkit-slider-thumb,
+    body.red-night #phase-slider::-moz-range-thumb {
+      background: #e8b8b8;
     }
 
   </style>
@@ -477,7 +567,7 @@
       </div>
       <div class="slider-wrap">
         <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
-               class="w-full accent-zinc-300">
+               class="w-full">
       </div>
       <p id="slider-label" class="text-[10px] sm:text-xs text-zinc-600 mt-1">Live phase</p>
     </div>
@@ -773,20 +863,6 @@
       starfieldRedPaint = null;
     }
 
-    function applyAstronomerRed(ctx, w, h) {
-      if (!redNight || !w || !h) return;
-      const imageData = ctx.getImageData(0, 0, w, h);
-      const d = imageData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        if (!d[i + 3]) continue;
-        const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
-        d[i] = lum;
-        d[i + 1] = 0;
-        d[i + 2] = 0;
-      }
-      ctx.putImageData(imageData, 0, 0);
-    }
-
     function paintStarfield(canvas, w, h) {
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1008,7 +1084,6 @@
       ctx.restore();
 
       brightenLit(ctx, cx, cy, r, phase, illum, northernHemisphere);
-      applyAstronomerRed(ctx, w, h);
     }
 
     function resizeMoonCanvas(canvas, force = false) {
