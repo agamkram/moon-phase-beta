@@ -406,6 +406,9 @@
     let moonBaseSize = 0;
 
     function moonCssSize() {
+      if (moonBaseSize > 0 && moonZoom > 1.01) {
+        return moonBaseSize * moonZoom;
+      }
       if (moonBaseSize > 0) return moonBaseSize;
       const wrap = document.querySelector('.moon-wrap');
       const cssW = wrap ? wrap.getBoundingClientRect().width : 0;
@@ -414,13 +417,11 @@
     }
 
     function moonDpr() {
-      return Math.min(window.devicePixelRatio || 1, 4);
+      return window.devicePixelRatio || 1;
     }
 
     function computeRenderSize() {
-      const zoom = moonZoom > 1.01 ? moonZoom : 1;
-      const visualPx = Math.ceil(moonCssSize() * zoom * moonDpr());
-      return Math.min(TEXTURE_SIZE, Math.max(256, visualPx));
+      return Math.min(TEXTURE_SIZE, Math.max(256, Math.ceil(moonCssSize() * moonDpr())));
     }
     let lastPhase = 0.5;
     let lastIllum = 1;
@@ -825,13 +826,11 @@
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.clip();
-      const dest = r * 2;
-      const downscale = dest < side - 2;
+      const dest = Math.round(r * 2);
+      const downscale = dest < side - 1;
       ctx.imageSmoothingEnabled = downscale;
       if (downscale && 'imageSmoothingQuality' in ctx) {
         ctx.imageSmoothingQuality = 'high';
-      } else {
-        ctx.imageSmoothingEnabled = false;
       }
       ctx.drawImage(textureCanvas, 0, 0, side, side, cx - r, cy - r, dest, dest);
       ctx.imageSmoothingEnabled = true;
@@ -853,9 +852,9 @@
       brightenLit(ctx, cx, cy, r, phase, illum, northernHemisphere);
     }
 
-    function resizeMoonCanvas(canvas) {
+    function resizeMoonCanvas(canvas, force = false) {
       const size = computeRenderSize();
-      if (canvas.width === size && canvas.height === size) return;
+      if (!force && canvas.width === size && canvas.height === size) return;
       canvas.width = size;
       canvas.height = size;
       limbGradient = null;
@@ -1083,14 +1082,29 @@
         return Math.hypot(dx, dy);
       }
 
+      function zoomAnchorPosition() {
+        const vv = window.visualViewport;
+        const dLeft = (vv?.offsetLeft ?? 0) - (moonZoomOrigin?.vvLeft ?? 0);
+        const dTop = (vv?.offsetTop ?? 0) - (moonZoomOrigin?.vvTop ?? 0);
+        return {
+          cx: moonZoomOrigin.cx + dLeft,
+          cy: moonZoomOrigin.cy + dTop,
+        };
+      }
+
       function captureMoonZoomOrigin() {
         if (!moonScene) return;
+        const vv = window.visualViewport;
         const rect = moonScene.getBoundingClientRect();
-        moonBaseSize = rect.width;
+        moonBaseSize = moonZoom > 1.01 && moonBaseSize > 0
+          ? moonBaseSize
+          : rect.width / (moonZoom > 1.01 ? moonZoom : 1);
         moonZoomOrigin = {
           cx: rect.left + rect.width / 2,
           cy: rect.top + rect.height / 2,
           size: moonBaseSize,
+          vvLeft: vv?.offsetLeft ?? 0,
+          vvTop: vv?.offsetTop ?? 0,
         };
       }
 
@@ -1112,7 +1126,7 @@
           cancelAnimationFrame(zoomRaf);
           zoomRaf = 0;
         }
-        resizeMoonCanvas(canvas);
+        resizeMoonCanvas(canvas, true);
         if (textureReady) drawMoon(moonCtx, textureReady, lastPhase, lastIllum);
       }
 
@@ -1133,13 +1147,15 @@
         if (zoomed) {
           if (!moonZoomOrigin) captureMoonZoomOrigin();
           if (moonZoomOrigin) {
+            const { cx, cy } = zoomAnchorPosition();
+            const layoutSize = moonZoomOrigin.size * moonZoom;
             moonScene.style.position = 'fixed';
-            moonScene.style.left = `${moonZoomOrigin.cx}px`;
-            moonScene.style.top = `${moonZoomOrigin.cy}px`;
-            moonScene.style.width = `${moonZoomOrigin.size}px`;
-            moonScene.style.height = `${moonZoomOrigin.size}px`;
+            moonScene.style.left = `${cx}px`;
+            moonScene.style.top = `${cy}px`;
+            moonScene.style.width = `${layoutSize}px`;
+            moonScene.style.height = `${layoutSize}px`;
             moonScene.style.maxHeight = 'none';
-            moonScene.style.transform = `translate(-50%, -50%) scale(${moonZoom})`;
+            moonScene.style.transform = 'translate(-50%, -50%)';
           }
         } else {
           clearMoonZoomStyles();
@@ -1171,9 +1187,19 @@
           const wasPinching = pinching;
           pinching = false;
           pinchStartDist = 0;
-          if (wasPinching && moonZoom > 1.01) repaintMoonNow();
+          if (wasPinching && moonZoom > 1.01) {
+            repaintMoonNow();
+            requestAnimationFrame(() => requestAnimationFrame(repaintMoonNow));
+          }
         }
       }, { passive: true });
+
+      window.visualViewport?.addEventListener('resize', () => {
+        if (moonZoom <= 1.01 || !moonZoomOrigin || !moonScene) return;
+        const { cx, cy } = zoomAnchorPosition();
+        moonScene.style.left = `${cx}px`;
+        moonScene.style.top = `${cy}px`;
+      });
 
       let gestureStartZoom = 1;
       document.addEventListener('gesturestart', (event) => {
