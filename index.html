@@ -32,20 +32,26 @@
       pointer-events: none;
       margin: 0;
       padding: 0;
-      background: #020308;
       overflow: hidden;
       top: calc(-1 * env(safe-area-inset-top, 0px));
       left: calc(-1 * env(safe-area-inset-left, 0px));
       right: calc(-1 * env(safe-area-inset-right, 0px));
       bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+      background:
+        radial-gradient(ellipse 130% 95% at 38% 18%, #121a2f 0%, #080c16 42%, #020308 100%);
     }
 
     #starfield {
+      position: absolute;
+      inset: 0;
       display: block;
+      width: 100%;
+      height: 100%;
       margin: 0;
       padding: 0;
       border: 0;
-      vertical-align: top;
+      object-fit: cover;
+      object-position: center center;
     }
 
     .app-shell {
@@ -566,84 +572,18 @@
       ctx.restore();
     }
 
-    const MAX_STARFIELD_CSS = 4096;
-    let starfieldPaint = { w: 0, h: 0 };
-    let safeAreaProbe = null;
-    const viewportProbes = {};
+    const MAX_STARFIELD_CSS = 2048;
+    let starfieldReady = false;
 
-    function readSafeAreaInsets() {
-      if (!safeAreaProbe) {
-        safeAreaProbe = document.createElement('div');
-        safeAreaProbe.style.cssText =
-          'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;padding:constant(safe-area-inset-top) constant(safe-area-inset-right) constant(safe-area-inset-bottom) constant(safe-area-inset-left);padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
-        document.body.appendChild(safeAreaProbe);
-      }
-      const style = getComputedStyle(safeAreaProbe);
-      return {
-        top: parseFloat(style.paddingTop) || 0,
-        right: parseFloat(style.paddingRight) || 0,
-        bottom: parseFloat(style.paddingBottom) || 0,
-        left: parseFloat(style.paddingLeft) || 0,
-      };
-    }
-
-    function readViewportUnit(unit) {
-      if (!viewportProbes[unit]) {
-        const probe = document.createElement('div');
-        probe.style.cssText =
-          `position:fixed;top:0;left:0;height:100${unit};visibility:hidden;pointer-events:none`;
-        document.body.appendChild(probe);
-        viewportProbes[unit] = probe;
-      }
-      return viewportProbes[unit].getBoundingClientRect().height;
-    }
-
-    function viewportCoverSize() {
-      const safe = readSafeAreaInsets();
-      const vv = window.visualViewport;
-      const visualH = (vv?.height ?? 0) + (vv?.offsetTop ?? 0);
-      const visualW = vv?.width ?? window.innerWidth;
-      const portrait = window.matchMedia('(orientation: portrait)').matches;
-      const sideA = window.innerWidth;
-      const sideB = window.innerHeight;
-      const orientedH = portrait ? Math.max(sideA, sideB) : Math.min(sideA, sideB);
-      const layoutH = Math.max(
-        window.innerHeight,
-        document.documentElement.clientHeight,
-        orientedH,
-        readViewportUnit('vh'),
-        readViewportUnit('svh'),
-        readViewportUnit('dvh'),
-        readViewportUnit('lvh'),
-        visualH
+    function initStarfieldOnce(canvas) {
+      if (starfieldReady) return;
+      const dim = Math.min(
+        MAX_STARFIELD_CSS,
+        Math.ceil(Math.max(window.screen.width, window.screen.height))
       );
-      const layoutW = Math.max(window.innerWidth, visualW, document.documentElement.clientWidth);
-      return {
-        w: Math.min(Math.ceil(layoutW + safe.left + safe.right), MAX_STARFIELD_CSS),
-        h: Math.min(Math.ceil(layoutH + safe.top + safe.bottom), MAX_STARFIELD_CSS),
-        safe,
-      };
-    }
-
-    function layoutStarfield(canvas, sky) {
-      const { w, h, safe } = viewportCoverSize();
-      if (!w || !h) return false;
-
-      sky.style.top = `${-safe.top}px`;
-      sky.style.left = `${-safe.left}px`;
-      sky.style.right = 'auto';
-      sky.style.bottom = 'auto';
-      sky.style.width = `${w}px`;
-      sky.style.height = `${h}px`;
-
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-
-      if (w === starfieldPaint.w && h === starfieldPaint.h && canvas.width > 0) return true;
-
-      paintStarfield(canvas, w, h);
-      starfieldPaint = { w, h };
-      return true;
+      if (!dim) return;
+      paintStarfield(canvas, dim, dim);
+      starfieldReady = true;
     }
 
     function paintStarfield(canvas, w, h) {
@@ -855,7 +795,6 @@
     }
 
     function init() {
-      const sky = document.getElementById('sky');
       const starfield = document.getElementById('starfield');
       const canvas = document.getElementById('moon-canvas');
       const moonCtx = canvas.getContext('2d', { alpha: true, desynchronized: true });
@@ -905,41 +844,39 @@
       let orientationTimer = 0;
       let suppressViewportUntil = 0;
 
-      function applyViewportLayout() {
+      function applyMoonLayout() {
         requestAnimationFrame(() => {
-          layoutStarfield(starfield, sky);
           resizeMoonCanvas(canvas);
           if (textureReady) drawMoon(moonCtx, textureReady, lastPhase, lastIllum);
         });
       }
 
-      function scheduleViewportLayout(delay = 150) {
+      function scheduleMoonLayout(delay = 150) {
         if (Date.now() < suppressViewportUntil) return;
         clearTimeout(viewportTimer);
-        viewportTimer = setTimeout(applyViewportLayout, delay);
+        viewportTimer = setTimeout(applyMoonLayout, delay);
       }
 
       function onOrientationChange() {
         clearTimeout(viewportTimer);
         suppressViewportUntil = Date.now() + 500;
-        starfieldPaint = { w: 0, h: 0 };
         clearTimeout(orientationTimer);
         orientationTimer = setTimeout(() => {
           suppressViewportUntil = 0;
-          applyViewportLayout();
+          applyMoonLayout();
           if (moonZoom > 1.01) {
             moonZoomOrigin = null;
             applyMoonZoom();
           }
         }, 350);
-        setTimeout(() => layoutStarfield(starfield, sky), 550);
       }
 
-      applyViewportLayout();
-      window.addEventListener('resize', () => scheduleViewportLayout(150));
+      initStarfieldOnce(starfield);
+      applyMoonLayout();
+      window.addEventListener('resize', () => scheduleMoonLayout(200));
       window.addEventListener('orientationchange', onOrientationChange);
       window.addEventListener('pageshow', () => {
-        scheduleViewportLayout(0);
+        scheduleMoonLayout(0);
         syncLiveDisplay();
       });
       drawMoon(moonCtx, false, 0, 0);
