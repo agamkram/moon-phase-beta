@@ -244,49 +244,21 @@
     }
 
     #phase-slider {
-      -webkit-appearance: none;
-      appearance: none;
       display: block;
       width: 100%;
-      height: 44px;
+      min-height: 48px;
       margin: 0;
       cursor: pointer;
-      background: transparent;
+      accent-color: rgb(212 212 216);
       touch-action: pan-y;
     }
 
-    #phase-slider::-webkit-slider-runnable-track {
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.14);
+    body.red-night #phase-slider {
+      accent-color: #e8b8b8;
     }
 
-    #phase-slider::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      border: 13px solid transparent;
-      background: rgb(212 212 216);
-      background-clip: padding-box;
-      border-radius: 50%;
-      margin-top: -19.5px;
-    }
-
-    #phase-slider::-moz-range-track {
-      height: 5px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.14);
-      border: 0;
-    }
-
-    #phase-slider::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
-      border: 13px solid transparent;
-      background: rgb(212 212 216);
-      background-clip: padding-box;
-      border-radius: 50%;
-      box-sizing: content-box;
+    .slider-panel {
+      padding: 0.85rem 0 0.35rem;
     }
 
     .slider-wrap {
@@ -460,19 +432,9 @@
       background: rgb(104 32 32);
     }
 
-    body.red-night .moon-wrap {
+    body.red-night .red-surface {
       -webkit-filter: url(#astronomer-red);
       filter: url(#astronomer-red);
-    }
-
-    body.red-night #phase-slider::-webkit-slider-runnable-track,
-    body.red-night #phase-slider::-moz-range-track {
-      background: rgba(200, 100, 100, 0.28);
-    }
-
-    body.red-night #phase-slider::-webkit-slider-thumb,
-    body.red-night #phase-slider::-moz-range-thumb {
-      background: #e8b8b8;
     }
 
   </style>
@@ -505,7 +467,7 @@
   </script>
 
   <div class="app-shell max-w-[720px] mx-auto">
-    <div class="app-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-2 px-1">
+    <div class="red-surface app-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-2 px-1">
       <div>
         <h1 class="title-font text-3xl sm:text-4xl tracking-tighter">The Moon</h1>
       </div>
@@ -524,6 +486,7 @@
     </div>
 
     <div class="app-footer px-1">
+    <div class="red-surface">
     <div class="stats-row grid grid-cols-4 gap-0.5 sm:gap-3">
       <div class="stat-card bg-zinc-900/60 border border-zinc-800 rounded-2xl px-1 py-2.5 sm:px-4 sm:py-4">
         <div class="stat-label text-zinc-500 mb-1.5">Illumination</div>
@@ -551,9 +514,10 @@
     </div>
 
     <p id="moon-date" class="text-center text-sm sm:text-base text-zinc-400 mt-2">—</p>
+    </div>
 
     <div class="footer-controls mt-3 sm:mt-4 space-y-3 sm:space-y-4">
-      <div>
+      <div class="red-surface">
         <div class="stat-label text-zinc-500 mb-2">Hemisphere</div>
         <div class="grid grid-cols-2 gap-2">
           <button type="button" id="hem-north" class="hem-btn active">Northern</button>
@@ -561,15 +525,17 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-between mb-2">
-        <label for="phase-slider" class="stat-label text-zinc-500">Preview phase</label>
-        <button type="button" id="reset-slider" class="live-btn is-live">Live</button>
+      <div class="slider-panel">
+        <div class="flex items-center justify-between mb-2">
+          <label for="phase-slider" class="stat-label text-zinc-500">Preview phase</label>
+          <button type="button" id="reset-slider" class="live-btn is-live">Live</button>
+        </div>
+        <div class="slider-wrap">
+          <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
+                 class="w-full">
+        </div>
+        <p id="slider-label" class="text-[10px] sm:text-xs text-zinc-600 mt-1">Live phase</p>
       </div>
-      <div class="slider-wrap">
-        <input type="range" id="phase-slider" min="0" max="1000" value="0" step="1"
-               class="w-full">
-      </div>
-      <p id="slider-label" class="text-[10px] sm:text-xs text-zinc-600 mt-1">Live phase</p>
     </div>
     </div>
   </div>
@@ -863,6 +829,20 @@
       starfieldRedPaint = null;
     }
 
+    function applyAstronomerRed(ctx, w, h) {
+      if (!redNight || !w || !h) return;
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        if (!d[i + 3]) continue;
+        const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        d[i] = lum;
+        d[i + 1] = 0;
+        d[i + 2] = 0;
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
     function paintStarfield(canvas, w, h) {
       const ctx = canvas.getContext('2d');
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1084,6 +1064,7 @@
       ctx.restore();
 
       brightenLit(ctx, cx, cy, r, phase, illum, northernHemisphere);
+      applyAstronomerRed(ctx, w, h);
     }
 
     function resizeMoonCanvas(canvas, force = false) {
