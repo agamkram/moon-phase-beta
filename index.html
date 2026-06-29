@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#030408">
+  <script>
+    try {
+      if (localStorage.getItem('redNight') === '1') {
+        document.documentElement.classList.add('red-night');
+        var theme = document.querySelector('meta[name="theme-color"]');
+        if (theme) theme.content = '#140404';
+      }
+    } catch (e) {}
+  </script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>The Moon</title>
@@ -253,7 +262,7 @@
       touch-action: pan-y;
     }
 
-    body.red-night #phase-slider {
+    html.red-night #phase-slider {
       accent-color: #e8b8b8;
     }
 
@@ -375,64 +384,71 @@
       background: rgb(82 82 91);
     }
 
-    body.red-night {
+    html.red-night {
       --sky-fill: radial-gradient(ellipse 130% 95% at 38% 18%, #4a1414 0%, #240808 42%, #140404 100%);
+      background-color: #140404;
+      background-image: var(--sky-fill);
       color: #f2d0d0;
     }
 
-    body.red-night html {
-      background-color: #140404;
-      background-image: var(--sky-fill);
-    }
-
-    body.red-night #sky {
+    html.red-night #sky {
       background: var(--sky-fill);
     }
 
-    body.red-night .text-white { color: #f2d0d0; }
-    body.red-night .text-zinc-300 { color: rgb(232 192 192); }
-    body.red-night .text-zinc-400 { color: rgb(200 160 160); }
-    body.red-night .text-zinc-500 { color: rgb(176 128 128); }
-    body.red-night .text-zinc-600 { color: rgb(160 112 112); }
+    html.red-night .text-white { color: #f2d0d0; }
+    html.red-night .text-zinc-300 { color: rgb(232 192 192); }
+    html.red-night .text-zinc-400 { color: rgb(200 160 160); }
+    html.red-night .text-zinc-500 { color: rgb(176 128 128); }
+    html.red-night .text-zinc-600 { color: rgb(160 112 112); }
 
-    body.red-night .stat-card,
-    body.red-night #phase-name {
+    html.red-night .stat-card,
+    html.red-night #phase-name {
       background: rgb(40 12 12 / 0.6) !important;
       border-color: rgb(80 28 28) !important;
     }
 
-    body.red-night .hem-btn {
+    html.red-night .hem-btn {
       border-color: rgb(80 28 28);
       background: rgb(40 12 12 / 0.6);
       color: rgb(232 192 192);
     }
 
-    body.red-night .hem-btn:hover {
+    html.red-night .hem-btn:hover {
       color: #f2d0d0;
       background: rgb(56 16 16 / 0.82);
     }
 
-    body.red-night .hem-btn.active {
+    html.red-night .hem-btn.active {
       background: rgb(88 28 28);
       border-color: rgb(120 40 40);
       color: #f2d0d0;
     }
 
-    body.red-night .live-btn.is-live {
+    html.red-night .live-btn.is-live {
       color: rgb(176 128 128);
     }
 
-    body.red-night .live-btn.is-preview {
+    html.red-night .live-btn.is-preview {
       color: #f2d0d0;
       background: rgb(88 28 28);
       border-color: rgb(120 40 40);
     }
 
-    body.red-night .live-btn.is-preview:hover {
+    html.red-night .live-btn.is-preview:hover {
       background: rgb(104 32 32);
     }
 
-    body.red-night .red-surface {
+    html.red-night .moon-wrap {
+      box-shadow:
+        0 16px 36px -14px rgb(0 0 0 / 0.32),
+        0 0 16px rgba(255, 160, 140, 0.15),
+        0 0 32px rgba(255, 130, 110, 0.28),
+        0 0 64px rgba(220, 100, 90, 0.17),
+        0 0 100px rgba(200, 80, 70, 0.08);
+    }
+
+    html.red-night .red-surface,
+    html.red-night .slider-panel {
       -webkit-filter: url(#astronomer-red);
       filter: url(#astronomer-red);
     }
@@ -460,7 +476,10 @@
       var sky = document.getElementById('sky');
       var canvas = document.getElementById('starfield');
       if (!sky || !canvas) return;
-      sky.style.cssText = 'right:auto;bottom:auto;width:' + cover + ';height:' + cover;
+      var redSky = false;
+      try { redSky = localStorage.getItem('redNight') === '1'; } catch (e) {}
+      sky.style.cssText = 'right:auto;bottom:auto;width:' + cover + ';height:' + cover +
+        (redSky ? ';background:#140404' : '');
       canvas.style.width = cover;
       canvas.style.height = cover;
     })();
@@ -733,11 +752,20 @@
     function brightenLit(ctx, cx, cy, r, phase, illum, northern) {
       if (illum <= 0.005) return;
 
-      if (!litLiftGradient) {
-        litLiftGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
-        litLiftGradient.addColorStop(0, 'rgba(255, 248, 235, 0.2)');
-        litLiftGradient.addColorStop(0.55, 'rgba(255, 248, 235, 0.07)');
-        litLiftGradient.addColorStop(1, 'rgba(255, 248, 235, 0)');
+      let lift;
+      if (redNight) {
+        lift = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
+        lift.addColorStop(0, 'rgba(255, 140, 120, 0.2)');
+        lift.addColorStop(0.55, 'rgba(255, 120, 100, 0.07)');
+        lift.addColorStop(1, 'rgba(255, 100, 80, 0)');
+      } else {
+        if (!litLiftGradient) {
+          litLiftGradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.92);
+          litLiftGradient.addColorStop(0, 'rgba(255, 248, 235, 0.2)');
+          litLiftGradient.addColorStop(0.55, 'rgba(255, 248, 235, 0.07)');
+          litLiftGradient.addColorStop(1, 'rgba(255, 248, 235, 0)');
+        }
+        lift = litLiftGradient;
       }
 
       ctx.save();
@@ -757,7 +785,7 @@
       }
       ctx.clip('evenodd');
       ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = litLiftGradient;
+      ctx.fillStyle = lift;
       ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       ctx.restore();
     }
@@ -1572,10 +1600,12 @@
 
       function setRedNight(on) {
         redNight = on;
-        document.body.classList.toggle('red-night', on);
+        document.documentElement.classList.toggle('red-night', on);
         const theme = document.querySelector('meta[name="theme-color"]');
         if (theme) theme.content = on ? THEME_RED : THEME_NORMAL;
         try { localStorage.setItem(RED_NIGHT_KEY, on ? '1' : '0'); } catch (_) {}
+        limbGradient = null;
+        litLiftGradient = null;
         refreshStarfield();
         if (textureReady) drawMoon(moonCtx, lastPhase, lastIllum);
       }
