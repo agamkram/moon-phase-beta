@@ -1120,6 +1120,7 @@
     }
 
     function fitToScreen(remasure = false) {
+      if (document.body.classList.contains('moon-zoomed')) return;
       const app = document.getElementById('app');
       const stage = document.getElementById('fit-stage');
       if (!app || !stage) return;
@@ -1256,7 +1257,7 @@
 
       function onViewportChange() {
         if (!isLivePinch() && !layoutFrozen) scheduleMoonLayout(200);
-        scheduleFitToScreen(true);
+        if (!isLivePinch() && moonZoom <= ZOOM_EPS) scheduleFitToScreen(true);
         if (performance.now() < starfieldBootUntil) return;
         clearTimeout(starfieldTimer);
         starfieldTimer = setTimeout(runStarfieldLayout, 100);
@@ -1444,8 +1445,8 @@
       }
 
       function captureMoonHome() {
-        if (moonHomeOrigin || !moon.slot) return;
-        moonHomeOrigin = layoutAnchorFromRect(moon.slot.getBoundingClientRect());
+        if (moonHomeOrigin || !moon.wrap) return;
+        moonHomeOrigin = layoutAnchorFromRect(moon.wrap.getBoundingClientRect());
       }
 
       function moonPanLimit() {
@@ -1484,7 +1485,18 @@
         captureMoonHome();
       }
 
+      function ensureMoonZoomPortal() {
+        if (!moon.wrap || moon.wrap.parentElement === document.body) return;
+        document.body.appendChild(moon.wrap);
+      }
+
+      function releaseMoonZoomPortal() {
+        if (!moon.wrap || !moon.slot || moon.wrap.parentElement === moon.slot) return;
+        moon.slot.appendChild(moon.wrap);
+      }
+
       function setWrapZoomLayout(cx, cy, size, transform) {
+        ensureMoonZoomPortal();
         moon.wrap.style.position = 'fixed';
         moon.wrap.style.left = `${cx}px`;
         moon.wrap.style.top = `${cy}px`;
@@ -1520,6 +1532,7 @@
         moon.wrap.style.height = '';
         moon.wrap.style.margin = '';
         moon.wrap.style.transform = '';
+        releaseMoonZoomPortal();
       }
 
       function repaintMoonNow(force = false) {
@@ -1585,6 +1598,7 @@
           stopPanning();
           pinching = true;
           freezePageLayout();
+          if (moonZoom <= ZOOM_EPS) moonHomeOrigin = null;
           pinchStartDist = touchSpan(event.touches);
           pinchStartZoom = moonZoom;
           captureMoonZoomOrigin();
@@ -1618,6 +1632,7 @@
         stopPanning();
         gesturing = true;
         freezePageLayout();
+        if (moonZoom <= ZOOM_EPS) moonHomeOrigin = null;
         pinchStartGestureZoom = moonZoom;
         captureMoonZoomOrigin();
       }, { passive: false });
