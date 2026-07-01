@@ -41,6 +41,9 @@
       position: fixed;
       inset: 0;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding:
         max(0.35rem, env(safe-area-inset-top))
         max(0.5rem, env(safe-area-inset-right))
@@ -49,11 +52,10 @@
     }
 
     .app {
-      position: absolute;
-      left: 50%;
-      top: 50%;
+      position: relative;
+      flex-shrink: 0;
       box-sizing: border-box;
-      transform: translate(-50%, -50%) scale(1);
+      transform: scale(1);
       transform-origin: center center;
       will-change: transform;
     }
@@ -281,15 +283,6 @@
     }
 
     @media (max-width: 767px) {
-      .fit-stage {
-        padding-top: max(0.5rem, env(safe-area-inset-top));
-      }
-
-      .app {
-        top: 0;
-        transform-origin: top center;
-      }
-
       .moon-slot {
         width: min(100%, 340px);
       }
@@ -1150,13 +1143,6 @@
       return isPhoneLayout(availW) ? availW : WIDE_APP_WIDTH;
     }
 
-    function fitTransform(scale, layout) {
-      if (layout === 'phone') {
-        return `translate(-50%, 0) scale(${scale})`;
-      }
-      return `translate(-50%, -50%) scale(${scale})`;
-    }
-
     function fitToScreen(remasure = false) {
       if (document.body.classList.contains('moon-zoomed')) return;
       const app = document.getElementById('app');
@@ -1174,7 +1160,7 @@
 
       if (remasure || viewportChanged || layoutChanged || !fitNaturalH) {
         const prevTransform = app.style.transform;
-        app.style.transform = fitTransform(1, layout);
+        app.style.transform = 'scale(1)';
         fitNaturalH = app.offsetHeight;
         fitNaturalW = app.offsetWidth;
         app.style.transform = prevTransform;
@@ -1191,7 +1177,7 @@
         1
       );
 
-      app.style.transform = fitTransform(scale, layout);
+      app.style.transform = `scale(${scale})`;
       app.classList.add('is-fitted');
     }
 
