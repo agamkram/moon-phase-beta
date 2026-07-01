@@ -577,6 +577,7 @@
   <canvas id="moon-texture" aria-hidden="true"></canvas>
 
   <script src="astronomy.js"></script>
+  <script src="fit-to-screen.js"></script>
   <script>
     const SYNODIC = 29.530588853;
     const THEME_NORMAL = '#030408';
@@ -1126,69 +1127,14 @@
       litLiftGradient = null;
     }
 
-    const PHONE_MAX_WIDTH = 767;
-    const WIDE_APP_WIDTH = 720;
-    let fitFrame = 0;
-    let fitNaturalH = 0;
-    let fitNaturalW = 0;
-    let fitAvailH = 0;
-    let fitAvailW = 0;
-    let fitLayout = '';
-
-    function isPhoneLayout(availW) {
-      return availW <= PHONE_MAX_WIDTH;
-    }
-
-    function appLayoutWidth(availW) {
-      return isPhoneLayout(availW) ? availW : WIDE_APP_WIDTH;
-    }
-
-    function fitToScreen(remasure = false) {
-      if (document.body.classList.contains('moon-zoomed')) return;
-      const app = document.getElementById('app');
-      const stage = document.getElementById('fit-stage');
-      if (!app || !stage) return;
-
-      const availH = stage.clientHeight;
-      const availW = stage.clientWidth;
-      const viewportChanged = availH !== fitAvailH || availW !== fitAvailW;
-      const layout = isPhoneLayout(availW) ? 'phone' : 'wide';
-      const layoutChanged = layout !== fitLayout;
-
-      app.style.width = `${appLayoutWidth(availW)}px`;
-      app.dataset.layout = layout;
-
-      if (remasure || viewportChanged || layoutChanged || !fitNaturalH) {
-        const prevTransform = app.style.transform;
-        app.style.transform = 'scale(1)';
-        fitNaturalH = app.offsetHeight;
-        fitNaturalW = app.offsetWidth;
-        app.style.transform = prevTransform;
-        fitAvailH = availH;
-        fitAvailW = availW;
-        fitLayout = layout;
-      }
-
-      if (!fitNaturalH || !fitNaturalW) return;
-
-      const scale = Math.min(
-        availH / fitNaturalH,
-        availW / fitNaturalW,
-        1
-      );
-
-      app.style.transform = `scale(${scale})`;
-      app.classList.add('is-fitted');
-    }
-
-    function scheduleFitToScreen(remasure = false) {
-      cancelAnimationFrame(fitFrame);
-      fitFrame = requestAnimationFrame(() => {
-        requestAnimationFrame(() => fitToScreen(remasure));
-      });
-    }
+    let fit;
 
     function init() {
+      fit = FitToScreen.create({
+        wideAppWidth: 720,
+        shouldFit: () => !document.body.classList.contains('moon-zoomed'),
+      });
+
       const sky = document.getElementById('sky');
       const starfield = document.getElementById('starfield');
       const canvas = document.getElementById('moon-canvas');
@@ -1237,7 +1183,7 @@
         }
         resizeMoonCanvas(canvas);
         syncLiveDisplay();
-        scheduleFitToScreen(true);
+        fit.scheduleFitToScreen(true);
       }
 
       syncLiveDisplay();
@@ -1283,7 +1229,7 @@
 
       function onViewportChange() {
         if (!isLivePinch() && !layoutFrozen) scheduleMoonLayout(200);
-        if (!isLivePinch() && moonZoom <= ZOOM_EPS) scheduleFitToScreen(true);
+        if (!isLivePinch() && moonZoom <= ZOOM_EPS) fit.scheduleFitToScreen(true);
         if (performance.now() < starfieldBootUntil) return;
         clearTimeout(starfieldTimer);
         starfieldTimer = setTimeout(runStarfieldLayout, 100);
@@ -1297,7 +1243,7 @@
       function onOrientationChange() {
         if (moonZoom > ZOOM_EPS) resetZoomPan();
         refreshStarfield();
-        scheduleFitToScreen(true);
+        fit.scheduleFitToScreen(true);
         clearTimeout(moonTimer);
         suppressMoonUntil = Date.now() + 500;
         clearTimeout(orientationTimer);
@@ -1309,13 +1255,13 @@
             applyMoonZoom(true);
             repaintMoonNow(true);
           }
-          scheduleFitToScreen(true);
+          fit.scheduleFitToScreen(true);
         }, 350);
       }
 
       refreshStarfield();
       applyMoonLayout();
-      scheduleFitToScreen(true);
+      fit.bootLayout();
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onOrientationChange);
       window.visualViewport?.addEventListener('resize', onViewportChange);
