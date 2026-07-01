@@ -31,12 +31,35 @@
 
     body {
       margin: 0;
-      min-height: 100lvh;
-      height: 100dvh;
-      max-height: 100dvh;
+      height: 100%;
       overflow: hidden;
       font-family: 'Inter', system-ui, -apple-system, sans-serif;
       background: transparent;
+    }
+
+    .fit-stage {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      padding:
+        max(0.35rem, env(safe-area-inset-top))
+        max(0.5rem, env(safe-area-inset-right))
+        max(0.35rem, env(safe-area-inset-bottom))
+        max(0.5rem, env(safe-area-inset-left));
+    }
+
+    .app {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      box-sizing: border-box;
+      transform: translate(-50%, -50%) scale(1);
+      transform-origin: center center;
+      will-change: transform;
+    }
+
+    .app:not(.is-fitted) {
+      visibility: hidden;
     }
 
     #sky {
@@ -65,19 +88,12 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      height: 100%;
-      max-height: 100lvh;
       box-sizing: border-box;
-      padding:
-        max(0.5rem, env(safe-area-inset-top))
-        max(1rem, env(safe-area-inset-right))
-        max(0.5rem, env(safe-area-inset-bottom))
-        max(1rem, env(safe-area-inset-left));
+      padding: 0.5rem 1rem;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-rows: auto auto auto;
       gap: 0.35rem;
-      overflow-x: visible;
-      overflow-y: hidden;
+      overflow: visible;
     }
 
     .app-footer {
@@ -212,15 +228,13 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      min-height: 0;
       min-width: 0;
       width: 100%;
       margin: 0 !important;
       padding-inline: 1.75rem;
-      padding-block: clamp(0.35rem, 5cqh, 1rem);
+      padding-block: 0.5rem;
       box-sizing: border-box;
       overflow: visible;
-      container-type: size;
     }
 
     body.moon-zoomed {
@@ -237,24 +251,11 @@
     }
 
     .moon-slot {
-      width: min(82vw, 400px, 100cqw, calc(100cqh - 0.75rem));
+      width: 280px;
       max-width: 100%;
-      max-height: 100%;
       aspect-ratio: 1;
-      flex-shrink: 1;
+      flex-shrink: 0;
       overflow: visible;
-    }
-
-    @media (min-width: 768px) {
-      .moon-slot {
-        width: min(68vh, 82vw, 480px, 100cqw, calc(100cqh - 0.75rem));
-      }
-    }
-
-    @media (orientation: landscape) and (min-width: 768px) {
-      .moon-slot {
-        width: min(58vh, 68vw, 440px, 100cqw, calc(100cqh - 0.75rem));
-      }
     }
 
     #phase-slider {
@@ -310,59 +311,6 @@
 
       #moon-date {
         margin-top: 0.35rem !important;
-      }
-    }
-
-    @media (min-width: 768px) {
-      .app-shell {
-        gap: 0.5rem;
-        padding-top: max(0.75rem, env(safe-area-inset-top));
-        padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-      }
-    }
-
-    @media (min-width: 1024px) and (pointer: fine) {
-      .app-shell {
-        max-height: 100dvh;
-        gap: 0.55rem;
-        padding-top: max(0.5rem, env(safe-area-inset-top));
-        padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
-      }
-
-      .moon-slot {
-        width: min(28vh, 26vw, 260px, 100cqw, calc(100cqh - 1rem));
-      }
-
-      html:not(.red-night) .moon-wrap {
-        box-shadow:
-          0 12px 28px -12px rgb(0 0 0 / 0.32),
-          0 0 12px rgba(255, 252, 245, 0.12),
-          0 0 24px rgba(225, 236, 255, 0.24),
-          0 0 48px rgba(195, 215, 255, 0.14);
-      }
-
-      html.red-night .moon-wrap {
-        box-shadow:
-          0 12px 28px -12px rgb(0 0 0 / 0.32),
-          0 0 12px rgba(255, 160, 140, 0.15),
-          0 0 24px rgba(255, 130, 110, 0.28),
-          0 0 48px rgba(220, 100, 90, 0.17);
-      }
-
-      .stats-row .stat-value,
-      .stat-value {
-        font-size: 1.5rem;
-      }
-
-      .stat-card {
-        padding-top: 0.65rem;
-        padding-bottom: 0.65rem;
-      }
-    }
-
-    @media (orientation: landscape) and (min-width: 1024px) and (pointer: fine) {
-      .moon-slot {
-        width: min(40vh, 28vw, 280px, 100cqw, calc(100cqh - 1rem));
       }
     }
 
@@ -532,6 +480,8 @@
     })();
   </script>
 
+  <div class="fit-stage" id="fit-stage">
+  <div class="app" id="app">
   <div class="app-shell max-w-[720px] mx-auto">
     <div class="red-surface app-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:mb-2 px-1">
       <div>
@@ -604,6 +554,8 @@
       </div>
     </div>
     </div>
+  </div>
+  </div>
   </div>
 
   <canvas id="moon-texture" aria-hidden="true"></canvas>
@@ -1150,6 +1102,65 @@
       litLiftGradient = null;
     }
 
+    const PHONE_MAX_WIDTH = 767;
+    const WIDE_APP_WIDTH = 720;
+    let fitFrame = 0;
+    let fitNaturalH = 0;
+    let fitNaturalW = 0;
+    let fitAvailH = 0;
+    let fitAvailW = 0;
+    let fitLayout = '';
+
+    function isPhoneLayout(availW) {
+      return availW <= PHONE_MAX_WIDTH;
+    }
+
+    function appLayoutWidth(availW) {
+      return isPhoneLayout(availW) ? availW : WIDE_APP_WIDTH;
+    }
+
+    function fitToScreen(remasure = false) {
+      const app = document.getElementById('app');
+      const stage = document.getElementById('fit-stage');
+      if (!app || !stage) return;
+
+      const availH = stage.clientHeight;
+      const availW = stage.clientWidth;
+      const viewportChanged = availH !== fitAvailH || availW !== fitAvailW;
+      const layout = isPhoneLayout(availW) ? 'phone' : 'wide';
+      const layoutChanged = layout !== fitLayout;
+
+      app.style.width = `${appLayoutWidth(availW)}px`;
+      app.dataset.layout = layout;
+
+      if (remasure || viewportChanged || layoutChanged || !fitNaturalH) {
+        const prevTransform = app.style.transform;
+        app.style.transform = 'translate(-50%, -50%) scale(1)';
+        fitNaturalH = app.offsetHeight;
+        fitNaturalW = app.offsetWidth;
+        app.style.transform = prevTransform;
+        fitAvailH = availH;
+        fitAvailW = availW;
+        fitLayout = layout;
+      }
+
+      if (!fitNaturalH || !fitNaturalW) return;
+
+      const scale = layout === 'phone'
+        ? availH / fitNaturalH
+        : Math.min(availH / fitNaturalH, availW / fitNaturalW);
+
+      app.style.transform = `translate(-50%, -50%) scale(${scale})`;
+      app.classList.add('is-fitted');
+    }
+
+    function scheduleFitToScreen(remasure = false) {
+      cancelAnimationFrame(fitFrame);
+      fitFrame = requestAnimationFrame(() => {
+        requestAnimationFrame(() => fitToScreen(remasure));
+      });
+    }
+
     function init() {
       const sky = document.getElementById('sky');
       const starfield = document.getElementById('starfield');
@@ -1199,6 +1210,7 @@
         }
         resizeMoonCanvas(canvas);
         syncLiveDisplay();
+        scheduleFitToScreen(true);
       }
 
       syncLiveDisplay();
@@ -1244,6 +1256,7 @@
 
       function onViewportChange() {
         if (!isLivePinch() && !layoutFrozen) scheduleMoonLayout(200);
+        scheduleFitToScreen(true);
         if (performance.now() < starfieldBootUntil) return;
         clearTimeout(starfieldTimer);
         starfieldTimer = setTimeout(runStarfieldLayout, 100);
@@ -1257,6 +1270,7 @@
       function onOrientationChange() {
         if (moonZoom > ZOOM_EPS) resetZoomPan();
         refreshStarfield();
+        scheduleFitToScreen(true);
         clearTimeout(moonTimer);
         suppressMoonUntil = Date.now() + 500;
         clearTimeout(orientationTimer);
@@ -1268,11 +1282,13 @@
             applyMoonZoom(true);
             repaintMoonNow(true);
           }
+          scheduleFitToScreen(true);
         }, 350);
       }
 
       refreshStarfield();
       applyMoonLayout();
+      scheduleFitToScreen(true);
       window.addEventListener('resize', onViewportChange);
       window.addEventListener('orientationchange', onOrientationChange);
       window.visualViewport?.addEventListener('resize', onViewportChange);
